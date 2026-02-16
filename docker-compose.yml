@@ -1,12 +1,32 @@
 services:
-  # Deine Python App
+  keycloak:
+    image: keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    command: start-dev
+    networks:
+      - auth-network
+
   python-app:
     build: .
     container_name: fastapiapp
-    command: fastapi dev app.py --host 0.0.0.0 --port 8000
+    command: fastapi dev app.py --host 0.0.0.0 --port 5000
     volumes:
       - .:/code
     ports:
-      - "8000:8000"
+      - "5000:5000"
     env_file:
       - .env
+    depends_on:
+      - keycloak
+    networks:
+      - auth-network
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
+networks:
+  auth-network:
+    driver: bridge

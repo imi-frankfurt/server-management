@@ -10,7 +10,7 @@ import jwt
 load_dotenv()
     
 keycloak_openid = KeycloakOpenID(
-    server_url=os.getenv("KEYCLOAK_SERVER_URL"),
+    server_url=os.getenv("KEYCLOAK_URL"),
     client_id=os.getenv("KEYCLOAK_CLIENT_ID"),
     realm_name=os.getenv("KEYCLOAK_REALM"),
     client_secret_key=os.getenv("KEYCLOAK_CLIENT_SECRET")
@@ -25,7 +25,8 @@ async def root():
 
 @router.get("/login")
 async def login():
-    auth_url = keycloak_openid.auth_url(redirect_uri="http://localhost:8000/callback", scope="openid profile email")
+    auth_url = keycloak_openid.auth_url(redirect_uri="http://localhost:5000/callback", scope="openid profile email")
+    print(f"test {auth_url}")
     return RedirectResponse(auth_url)
 
 @router.get("/callback")
@@ -34,7 +35,7 @@ def callback(code: str, request: Request):
         token = keycloak_openid.token(
             grant_type='authorization_code',
             code=code,
-            redirect_uri="http://localhost:8000/callback"
+            redirect_uri="http://localhost:5000/callback"
         )
         
         user_info = keycloak_openid.userinfo(token['access_token'])
