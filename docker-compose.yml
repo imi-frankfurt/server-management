@@ -11,10 +11,24 @@ services:
     networks:
       - auth-network
 
+  database:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5432:5432"
+    networks:
+      - auth-network
+    volumes:
+      - ./db-data/:/var/lib/postgresql
+
   python-app:
     build: .
     container_name: fastapiapp
-    command: fastapi dev app.py --host 0.0.0.0 --port 5000
+    command: ["/wait-for-it.sh", "database:5432", "--", "fastapi", "dev", "app.py", "--host", "0.0.0.0", "--port", "5000"]
     volumes:
       - .:/code
     ports:
