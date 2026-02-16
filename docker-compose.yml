@@ -3,8 +3,8 @@ services:
     image: keycloak/keycloak:latest
     container_name: keycloak
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
       - "8080:8080"
     command: start-dev
@@ -15,9 +15,9 @@ services:
     image: postgres:latest
     container_name: postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: auth_db
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-auth_db}
     ports:
       - "5432:5432"
     networks:
