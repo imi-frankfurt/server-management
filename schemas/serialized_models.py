@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
-class ClusterSerialized(BaseModel):
+class ServerSerialized(BaseModel):
     alias: str
 
 class HostAddressSerialized(BaseModel):
     address: str
-    cluster_id: int
+    server_id: int
