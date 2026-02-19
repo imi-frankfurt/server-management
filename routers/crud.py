@@ -8,7 +8,10 @@ from services.server_service import create_server, get_all_servers
 from services.host_service import create_host_address
 from core.shared_utilities import success_response
 
-router = APIRouter()
+router = APIRouter(
+        prefix="/api",
+        tags=["CRUD Operations"]
+)
 
 
 @router.get("/servers", status_code=status.HTTP_200_OK)

@@ -4,13 +4,34 @@ from fastapi.exceptions import RequestValidationError
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
+import json
 from routers import auth, crud
 from db.database import init_db
 from core.shared_utilities import format_validation_errors
 
 load_dotenv()
 
-app = FastAPI()
+# Load custom OpenAPI spec from api.json
+def load_openapi_spec():
+    try:
+        # Get the absolute path to api.json
+        api_json_path = os.path.join(os.path.dirname(__file__), "docs", "api.json")
+        with open(api_json_path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading api.json: {e}")
+        return {}
+
+app = FastAPI(docs_url="/docs", redoc_url=None, openapi_url="/openapi.json")
+
+# Override the openapi() method to use custom api.json
+def custom_openapi():
+    if not app.openapi_schema:
+        app.openapi_schema = load_openapi_spec()
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 init_db()
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))

@@ -6,6 +6,24 @@
     "description": "This is an RESTful API spec for the IMI Server Manager application."
   },
   "components": {
+    "securitySchemes": {
+      "OIDC": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "http://keycloak:8080/realms/imi-realm/protocol/openid-connect/auth",
+            "tokenUrl": "http://keycloak:8080/realms/imi-realm/protocol/openid-connect/token",
+            "refreshUrl": "http://keycloak:8080/realms/imi-realm/protocol/openid-connect/token",
+            "scopes": {
+              "openid": "OpenID Connect",
+              "profile": "User profile information",
+              "email": "User email"
+            }
+          }
+        },
+        "description": "OpenID Connect (OIDC) authentication via Keycloak. Client ID: client-imi. Click 'Authorize' to login."
+      }
+    },
     "schemas": {
       "server": {
         "type": "object",
@@ -50,10 +68,11 @@
   "paths": {
     "/api/servers": {
       "get": {
+        "tags": ["Servers"],
         "summary": "List all servers",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "responses": {
@@ -76,11 +95,12 @@
         }
       },
       "post": {
+        "tags": ["Servers"],
         "summary": "Add one or multiple servers to the system",
         "description": "Can accept either a single server object or an array of multiple servers",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "requestBody": {
@@ -240,10 +260,11 @@
     },
     "/api/servers/{server_id}": {
       "get": {
+        "tags": ["Servers"],
         "summary": "Get server details by ID",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "parameters": [
@@ -278,10 +299,11 @@
         }
       },
       "put": {
+        "tags": ["Servers"],
         "summary": "Update an existing server",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "parameters": [
@@ -349,10 +371,11 @@
         }
       },
       "delete": {
+        "tags": ["Servers"],
         "summary": "Delete a server",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "parameters": [
@@ -381,6 +404,7 @@
     },
     "/auth/login": {
       "get": {
+        "tags": ["Authentication"],
         "summary": "Initiate OpenID Connect (OIDC) Login",
         "description": "Redirects to Keycloak for user authentication. After successful login, Keycloak redirects back to /auth/callback with authorization code.",
         "responses": {
@@ -392,6 +416,7 @@
     },
     "/auth/callback": {
       "get": {
+        "tags": ["Authentication"],
         "summary": "OIDC Callback Handler",
         "description": "Keycloak redirects here after successful authentication with authorization code. This endpoint exchanges the code for a token and stores it in server-side session.",
         "parameters": [
@@ -426,11 +451,12 @@
     },
     "/protected": {
       "get": {
+        "tags": ["Authentication"],
         "summary": "Protected Route - Requires Authentication",
         "description": "Returns authenticated user information and roles. Requires valid session token from OIDC login.",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "responses": {
@@ -478,11 +504,12 @@
     },
     "/read-data": {
       "get": {
+        "tags": ["Authentication"],
         "summary": "Read Data - Role-Based Access",
         "description": "Returns data if user has 'read-only-role' permission. Requires authentication and specific role.",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "responses": {
@@ -526,11 +553,12 @@
     },
     "/auth/logout": {
       "get": {
+        "tags": ["Authentication"],
         "summary": "Logout and Clear Session",
         "description": "Clears the server-side session and invalidates the authentication token",
         "security": [
           {
-            "BearerAuth": []
+            "OIDC": []
           }
         ],
         "responses": {

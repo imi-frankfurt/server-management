@@ -13,7 +13,10 @@ load_dotenv()
     
 
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"]
+)
 
 
 @router.get("/")

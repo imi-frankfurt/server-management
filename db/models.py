@@ -14,20 +14,20 @@ class Base(Base):
 class Server(Base):
     __tablename__ = "server"
     id = Column(Integer, primary_key=True, index=True)
-    alias = Column(String, unique=True, index=True)
+    ip = Column(String, unique=True, index=True)
     # m:n relationship with User
     users = relationship("User", secondary="user_server", back_populates="servers")
-    # 1:n relationship with HostAddress
-    host_addresses = relationship("HostAddress", back_populates="server")
+    # 1:n relationship with Alias
+    alias = relationship("Alias", back_populates="server")
     # 1:n relationship with IgnoredUser
     ignored_users = relationship("IgnoredUser", back_populates="server")
 
-class HostAddress(Base):
-    __tablename__ = "host_address"
+class Alias(Base):
+    __tablename__ = "alias"
     id = Column(Integer, primary_key=True, index=True)
-    address = Column(String, unique=True, index=True)
+    alias = Column(String, unique=True, index=True)
     server_id = Column(Integer, ForeignKey("server.id"))
-    server = relationship("Server", back_populates="host_addresses")
+    server = relationship("Server", back_populates="alias")
 
 class IgnoredUser(Base):
     __tablename__ = "ignored_user"
@@ -35,7 +35,6 @@ class IgnoredUser(Base):
     username = Column(String, unique=True, index=True)
     server_id = Column(Integer, ForeignKey("server.id"))
     server = relationship("Server", back_populates="ignored_users")
-
 
 class User(Base):
     __tablename__ = "user"
