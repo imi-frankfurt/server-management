@@ -5,7 +5,7 @@ from db.database import getSession
 from sqlalchemy.orm import Session
 from schemas.serialized_models import ServerSerialized, HostAddressSerialized
 
-def create_server(server: ServerSerialized, request: Request = None, session: Session = Depends(getSession)):
+def create_server(server: ServerSerialized, session: Session = Depends(getSession)):
     if check_duplicate(session, models.Server, alias=server.alias):
         error_response("Server with this alias already exists", status.HTTP_409_CONFLICT)
     new_server = models.Server(alias=server.alias)

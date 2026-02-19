@@ -20,7 +20,6 @@ app.include_router(crud.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Custom handler for validation errors with standardized response format"""
     return JSONResponse(
         status_code=422,
         content={

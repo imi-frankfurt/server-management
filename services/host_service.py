@@ -8,7 +8,6 @@ from db import models
 
 def create_host_address(
     host_address: HostAddressSerialized,
-    request: Request,
     session: Session = Depends(getSession),
 ):
     if check_duplicate(session, models.HostAddress, address=host_address.address):
