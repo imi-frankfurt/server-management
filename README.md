@@ -43,5 +43,3 @@ The application centers around the "Server" entity and supports the following fe
 - **Database:** PostgreSQL - Relational database for structured server metadata
 - **Container:** Docker - Consistent deployment of application and database
 - **Authentication:** Keycloak - Handles OIDC authentication and role management
-
-<iframe width="768" height="640" src="https://miro.com/app/live-embed/uXjVGFfJvXU=/?focusWidget=3458764658941422651&embedMode=view_only_without_ui&embedId=386124261088" frameborder="0" scrolling="no" allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>

@@ -1,0 +1,544 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IMI Server Manager",
+    "version": "1.0.0",
+    "description": "This is an RESTful API spec for the IMI Server Manager application."
+  },
+  "components": {
+    "schemas": {
+      "server": {
+        "type": "object",
+        "required": [
+          "name",
+          "ip",
+          "alias"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "format": "string",
+            "example": "imi-server-01"
+          },
+          "ip": {
+            "type": "string",
+            "format": "ipv4",
+            "example": "192.168.1.1"
+          },
+          "alias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "my-server-alias",
+              "production-server"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/servers": {
+      "get": {
+        "summary": "List all servers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of all servers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/server"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          }
+        }
+      },
+      "post": {
+        "summary": "Add one or multiple servers to the system",
+        "description": "Can accept either a single server object or an array of multiple servers",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "description": "Single server object",
+                    "required": [
+                      "ip",
+                      "name",
+                      "alias"
+                    ],
+                    "properties": {
+                      "ip": {
+                        "type": "string",
+                        "format": "ipv4",
+                        "example": "192.168.1.1"
+                      },
+                      "name": {
+                        "type": "string",
+                        "example": "imi-server-01"
+                      },
+                      "alias": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "example": ["server-alias-1", "server-alias-2"]
+                      }
+                    }
+                  },
+                  {
+                    "type": "array",
+                    "description": "Multiple server objects",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "ip",
+                        "name",
+                        "alias"
+                      ],
+                      "properties": {
+                        "ip": {
+                          "type": "string",
+                          "format": "ipv4"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "alias": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "example": [
+                      {
+                        "ip": "192.168.1.1",
+                        "name": "imi-server-01",
+                        "alias": ["alias-1"]
+                      },
+                      {
+                        "ip": "192.168.1.2",
+                        "name": "imi-server-02",
+                        "alias": ["alias-2"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Server(s) created successfully",
+            "content": {
+              "application/json": {
+                "oneOf": [
+                  {
+                    "description": "Single server response",
+                    "$ref": "#/components/schemas/server"
+                  },
+                  {
+                    "description": "Multiple servers response",
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/server"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input - check request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "Invalid IP address format"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - server with this IP or name already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "Server with IP 192.168.1.1 already exists"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error - missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      },
+                      "example": [{"field": "ip", "message": "field required"}]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          }
+        }
+      }
+    },
+    "/api/servers/{server_id}": {
+      "get": {
+        "summary": "Get server details by ID",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/server"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Server not found"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update an existing server",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ip": {
+                    "type": "string",
+                    "format": "ipv4",
+                    "example": "192.168.1.5"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "imi-server-updated"
+                  },
+                  "alias": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": ["updated-alias"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/server"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Server not found"
+          },
+          "409": {
+            "description": "Conflict - IP or name already exists"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a server",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Server deleted successfully"
+          },
+          "404": {
+            "description": "Server not found"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "get": {
+        "summary": "Initiate OpenID Connect (OIDC) Login",
+        "description": "Redirects to Keycloak for user authentication. After successful login, Keycloak redirects back to /auth/callback with authorization code.",
+        "responses": {
+          "302": {
+            "description": "Redirect to Keycloak login page"
+          }
+        }
+      }
+    },
+    "/auth/callback": {
+      "get": {
+        "summary": "OIDC Callback Handler",
+        "description": "Keycloak redirects here after successful authentication with authorization code. This endpoint exchanges the code for a token and stores it in server-side session.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Authorization code from Keycloak"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Optional state parameter for CSRF protection"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to protected route after successful token exchange"
+          },
+          "401": {
+            "description": "Authorization code invalid or expired"
+          }
+        }
+      }
+    },
+    "/protected": {
+      "get": {
+        "summary": "Protected Route - Requires Authentication",
+        "description": "Returns authenticated user information and roles. Requires valid session token from OIDC login.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User authenticated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "username": {
+                          "type": "string",
+                          "example": "john.doe"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "example": ["admin", "user"]
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Access granted"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - user not authenticated"
+          }
+        }
+      }
+    },
+    "/read-data": {
+      "get": {
+        "summary": "Read Data - Role-Based Access",
+        "description": "Returns data if user has 'read-only-role' permission. Requires authentication and specific role.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "username": {
+                          "type": "string",
+                          "example": "john.doe"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Data retrieved successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - user not authenticated"
+          },
+          "403": {
+            "description": "Forbidden - user lacks required role"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "get": {
+        "summary": "Logout and Clear Session",
+        "description": "Clears the server-side session and invalidates the authentication token",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Session cleared - redirects to home page"
+          }
+        }
+      }
+    }
+  }
+}
