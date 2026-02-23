@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
@@ -35,6 +36,22 @@ app.openapi = custom_openapi
 init_db()
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
+
+origins = [
+    "http://localhost",
+    "http://localhost:5000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:5000",
+]
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 app.include_router(auth.router)
 app.include_router(crud.router)
 

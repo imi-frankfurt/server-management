@@ -15,6 +15,7 @@ class Server(Base):
     __tablename__ = "server"
     id = Column(Integer, primary_key=True, index=True)
     ip = Column(String, unique=True, index=True)
+    name = Column(String, index=True)
     # m:n relationship with User
     users = relationship("User", secondary="user_server", back_populates="servers")
     # 1:n relationship with Alias

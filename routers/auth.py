@@ -31,7 +31,7 @@ async def login():
 @router.get("/callback")
 def callback(code: str, request: Request):
     if callback_token(code, request):
-        return RedirectResponse(url="/protected", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/auth/protected", status_code=status.HTTP_302_FOUND)
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login failed")
 

@@ -5,15 +5,21 @@
     "version": "1.0.0",
     "description": "This is an RESTful API spec for the IMI Server Manager application."
   },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development server"
+    }
+  ],
   "components": {
     "securitySchemes": {
       "OIDC": {
         "type": "oauth2",
         "flows": {
           "authorizationCode": {
-            "authorizationUrl": "http://keycloak:8080/realms/imi-realm/protocol/openid-connect/auth",
-            "tokenUrl": "http://keycloak:8080/realms/imi-realm/protocol/openid-connect/token",
-            "refreshUrl": "http://keycloak:8080/realms/imi-realm/protocol/openid-connect/token",
+            "authorizationUrl": "http://localhost:8080/realms/imi-realm/protocol/openid-connect/auth",
+            "tokenUrl": "http://localhost:8080/realms/imi-realm/protocol/openid-connect/token",
+            "refreshUrl": "http://localhost:8080/realms/imi-realm/protocol/openid-connect/token",
             "scopes": {
               "openid": "OpenID Connect",
               "profile": "User profile information",
@@ -66,9 +72,9 @@
     }
   },
   "paths": {
-    "/api/servers": {
+    "/api/server": {
       "get": {
-        "tags": ["Servers"],
+        "tags": ["Server"],
         "summary": "List all servers",
         "security": [
           {
@@ -95,7 +101,7 @@
         }
       },
       "post": {
-        "tags": ["Servers"],
+        "tags": ["Server"],
         "summary": "Add one or multiple servers to the system",
         "description": "Can accept either a single server object or an array of multiple servers",
         "security": [
@@ -258,9 +264,9 @@
         }
       }
     },
-    "/api/servers/{server_id}": {
+    "/api/server/{server_id}": {
       "get": {
-        "tags": ["Servers"],
+        "tags": ["Server"],
         "summary": "Get server details by ID",
         "security": [
           {
@@ -273,10 +279,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "integer",
+              "format": "int64"
             },
-            "example": "550e8400-e29b-41d4-a716-446655440000"
+            "example": 12345
           }
         ],
         "responses": {
@@ -299,7 +305,7 @@
         }
       },
       "put": {
-        "tags": ["Servers"],
+        "tags": ["Server"],
         "summary": "Update an existing server",
         "security": [
           {
@@ -312,8 +318,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -371,7 +377,7 @@
         }
       },
       "delete": {
-        "tags": ["Servers"],
+        "tags": ["Server"],
         "summary": "Delete a server",
         "security": [
           {
@@ -384,8 +390,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
