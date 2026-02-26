@@ -46,6 +46,8 @@ def get_all_servers(session: Session):
 def get_server_by_id(server_id: int, session: Session):
     try:
         server = session.query(models.Server).filter(models.Server.id == server_id).first()
+        if server is None:
+            return error_response(message="Server not found", status_code=status.HTTP_404_NOT_FOUND)
         # Check if server has any aliases
         aliases = session.query(models.Alias).filter(models.Alias.server_id == server_id).all()
         if aliases:

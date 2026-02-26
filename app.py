@@ -35,23 +35,27 @@ app.openapi = custom_openapi
 
 init_db()
 
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
-
 origins = [
     "http://localhost",
     "http://localhost:5000",
+    "http://localhost:8080",
     "http://127.0.0.1",
     "http://127.0.0.1:5000",
+    "http://127.0.0.1:8080",
+    "*"  # Allow all for development/testing
 ]
 
-# Add CORS middleware
+# Add CORS middleware BEFORE SessionMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
 app.include_router(auth.router)
 app.include_router(crud.router)
 
