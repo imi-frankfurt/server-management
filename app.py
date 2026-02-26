@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
 import json
-from routers import auth, crud
+from routers import auth, crud, user
 from db.database import init_db
 from core.shared_utilities import format_validation_errors
 
@@ -58,6 +58,7 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
 app.include_router(auth.router)
 app.include_router(crud.router)
+app.include_router(user.router)
 
 
 @app.exception_handler(RequestValidationError)
