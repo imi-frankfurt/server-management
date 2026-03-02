@@ -37,11 +37,27 @@ def create_server(server: ServerSerialized, response: Response, session: Session
     return response
 
 def get_all_servers(session: Session):
-    servers = session.query(models.Server).all()
-    return success_response(
-        data=servers,
-        message="Servers retrieved successfully"
-    )
+    try:
+        servers = session.query(models.Server).all()
+        server_list = []
+        for server in servers:
+            aliases = session.query(models.Alias).filter(models.Alias.server_id == server.id).all()
+            alias_list = [al.alias for al in aliases]
+
+            server_list.append({
+                "id": server.id,
+                "name": server.name,
+                "ip": server.ip,
+                "aliases": alias_list,
+                "created_at": server.created_at,
+                "updated_at": server.updated_at
+            })
+        return success_response(
+            data=server_list,
+            message="Servers retrieved successfully"
+        )
+    except Exception as e:
+        return error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def get_server_by_id(server_id: int, session: Session):
     try:

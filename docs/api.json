@@ -39,6 +39,11 @@
           "alias"
         ],
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1
+          },
           "name": {
             "type": "string",
             "format": "string",
@@ -466,11 +471,12 @@
           }
         }
       }
-    },
+    }
+  },
     "/api/user/{keycloak_id}": {
       "get": {
         "tags": ["User"],
-        "summary": "Get user details by Keycloak ID",
+        "summary": "Get user details",
         "security": [
           {
             "OIDC": []
@@ -537,6 +543,85 @@
           }
         }
       }
+    },
+    "/api/user/sync": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Sync users from Keycloak",
+        "description": "Fetches users from Keycloak and updates the local database. Returns the list of users after synchronization.",
+        "security": [
+          {
+            "OIDC": []
+          }
+        ],
+        "responses": {
+            "200": {
+              "description": "Users synchronized successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "added_users": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "username": {
+                                "type": "string",
+                                "example": "imi-user-01"
+                              },
+                              "keycloak_id": {
+                                "type": "string",
+                                "example": "2e9f1edd-f49c-4c49-bba1-26f1b8f64aed"
+                              },
+                              "pubkeys_count": {
+                                "type": "integer",
+                                "example": 1
+                              }
+                            }
+                          }
+                        },
+                        "updated_users": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "username": {
+                                "type": "string",
+                                "example": "imi-user-02"
+                              },
+                              "changes": {
+                                "type": "array",
+                                "example": "added key"
+                              },
+                              "keys_added": {
+                                "type": "integer",
+                                "example": 1
+                              },
+                              "keys_removed": {
+                                "type": "integer",
+                                "example": 0
+                              }
+                            }
+                          }
+                        }                   
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal server error during synchronization"
+            },
+            "401": {
+              "description": "Unauthorized - invalid or missing authentication token"
+            }
+          }
+        }
     },
     "/auth/login": {
       "get": {

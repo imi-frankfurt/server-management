@@ -82,7 +82,7 @@ def get_user_by_id(session: Session, user_id: str):
         pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == user.id).all()
         pubkey_list = [pk.key_content for pk in pubkeys]
         
-        user_info = {"id": user.id, "keycloak_id": user.keycloak_id, "name": user.username, "pubKey": pubkey_list, "created_at": user.created_at, "updated_at": user.updated_at}
+        user_info = {"id": user.id, "keycloak_id": user.keycloak_id, "username": user.username, "pubKey": pubkey_list, "created_at": user.created_at, "updated_at": user.updated_at}
         return success_response(data=user_info, message="User fetched successfully")
     except Exception as e:
         error_response(f"Failed to fetch user: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
