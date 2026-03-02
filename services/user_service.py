@@ -5,10 +5,8 @@ import os
 from dotenv import load_dotenv
 from core.shared_utilities import check_duplicate, error_response, success_response
 from db import models
-from db.database import getSession
 from sqlalchemy.orm import Session
-
-from schemas.serialized_models import UserSerialized
+from schemas.serialized_models import UserAssignmentSerialized
 
 load_dotenv()
 
@@ -179,63 +177,31 @@ def sync_users(session: Session):
         session.rollback()
         error_response(f"Failed to synchronize users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def add_user_to_local_db(session: Session, user_id: str):
+def assign_user_to_server(server_user: UserAssignmentSerialized, session: Session):
     try:
-        kc_user = keycloak_admin.get_user(user_id)
-        if not kc_user:
-            error_response("User not found in Keycloak", status.HTTP_404_NOT_FOUND)
-
-        if check_duplicate(session, models.User, keycloak_id=kc_user["id"]):
-            error_response("User already exists in local database", status.HTTP_409_CONFLICT)
-
-        new_user = models.User(keycloak_id=kc_user["id"], username=kc_user["username"])
-        session.add(new_user)
-        session.flush()  # Get the user ID
+        user = session.query(models.User).filter(models.User.id == server_user.user_id).first()
+        server = session.query(models.Server).filter(models.Server.id == server_user.server_id).first()
         
-        # Add all public keys
-        kc_pubkeys = []
-        if "attributes" in kc_user and "pubKey" in kc_user["attributes"]:
-            pubkey_data = kc_user["attributes"]["pubKey"]
-            if isinstance(pubkey_data, list):
-                kc_pubkeys = [pk for pk in pubkey_data if pk]  # Filter out empty strings
-            elif isinstance(pubkey_data, str) and pubkey_data:
-                kc_pubkeys = [pubkey_data]
+        if not user:
+            error_response("User not found", status.HTTP_404_NOT_FOUND)
         
-        for kc_pubkey in kc_pubkeys:
-            new_pubkey = models.PublicKey(key_content=kc_pubkey, user_id=new_user.id)
-            session.add(new_pubkey)
+        if not server:
+            error_response("Server not found", status.HTTP_404_NOT_FOUND)
         
+        # Check if association already exists
+        association = session.query(models.user_server).filter(
+            models.user_server.c.user_id == server_user.user_id,
+            models.user_server.c.server_id == server_user.server_id
+        ).first()
+        
+        if association:
+            error_response("User is already assigned to this server", status.HTTP_400_BAD_REQUEST)
+        
+        # Create association
+        create_association = models.user_server.insert().values(user_id=server_user.user_id, server_id=server_user.server_id, primary_user=server_user.primary_user)
+        session.execute(create_association)
         session.commit()
-        session.refresh(new_user)
-        return True
-    except HTTPException:
-        session.rollback()
-        raise
+        return success_response(message="User assigned to server successfully")
     except Exception as e:
         session.rollback()
-        return False
-    
-
-def create_user(user: UserSerialized, response: Response, session: Session = Depends(getSession)):
-    if check_duplicate(session, models.User, keycloak_id=user.keycloak_id):
-        error_response("User with this keycloak_id already exists", status.HTTP_409_CONFLICT)
-
-    # Add to User Table
-    new_user = models.User(keycloak_id=user.keycloak_id, username=user.username)
-    session.add(new_user)
-    session.flush()  # Get the user ID
-    
-    # Add public keys if present
-    if hasattr(user, 'pubKey') and user.pubKey:
-        pubkeys = user.pubKey if isinstance(user.pubKey, list) else [user.pubKey]
-        for pubkey in pubkeys:
-            if pubkey:  # Skip empty strings
-                new_pubkey = models.PublicKey(key_content=pubkey, user_id=new_user.id)
-                session.add(new_pubkey)
-    
-    session.commit()
-    session.refresh(new_user)
-
-    response.status_code = status.HTTP_201_CREATED
-    response.headers["Location"] = f"/api/user/{new_user.id}"
-    return response
+        error_response(f"Failed to assign user to server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)

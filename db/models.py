@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import declarative_base, relationship
 
 
@@ -56,6 +56,9 @@ user_server = Table(
     'user_server',
     Base.metadata,
     Column('user_id', Integer, ForeignKey('user.id', ondelete="CASCADE"), primary_key=True),
-    Column('server_id', Integer, ForeignKey('server.id', ondelete="CASCADE"), primary_key=True)
+    Column('server_id', Integer, ForeignKey('server.id', ondelete="CASCADE"), primary_key=True),
+    Column('primary_user', Boolean, default=False),
+    Column('created_at', DateTime, default=datetime.now),
+    Column('updated_at', DateTime, default=datetime.now, onupdate=datetime.now)
 )
 

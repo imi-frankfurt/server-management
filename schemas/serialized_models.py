@@ -8,3 +8,8 @@ class ServerSerialized(BaseModel):
 class UserSerialized(BaseModel):
     keycloak_id: str
     username: str
+
+class UserAssignmentSerialized(BaseModel):
+    user_id: int
+    server_id: int
+    primary_user: bool = False

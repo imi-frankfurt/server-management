@@ -623,6 +623,60 @@
           }
         }
     },
+    "/api/user/assign": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Assign user to server",
+        "description": "Assigns a user to a server with optional primary user flag. Requires admin role.",
+        "security": [
+          {
+            "OIDC": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "server_id": {
+                    "type": "integer",
+                    "example": 12345
+                  },
+                  "primary_user": {
+                    "type": "boolean",
+                    "example": false
+                  }
+                },
+                "required": ["user_id", "server_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User assigned to server successfully"
+          },
+          "400": {
+            "description": "Invalid input - check user_id and server_id"
+          },
+          "404": {
+            "description": "User or server not found"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          },
+          "403": {
+            "description": "Forbidden - requires admin role"
+          }
+        }
+      }
+    },
     "/auth/login": {
       "get": {
         "tags": ["Authentication"],
