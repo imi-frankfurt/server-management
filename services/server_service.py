@@ -4,7 +4,7 @@ from db import models
 from db.database import getSession
 from sqlalchemy.orm import Session
 from schemas.serialized_models import ServerSerialized
-from core.shared_utilities import check_duplicate, record_exists
+from core.shared_utilities import check_duplicate
 from datetime import datetime
 def create_server(server: ServerSerialized, response: Response, session: Session = Depends(getSession)):
     if check_duplicate(session, models.Server, name=server.name):

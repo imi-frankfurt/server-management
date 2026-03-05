@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 
 
@@ -32,8 +32,11 @@ class Alias(Base):
 
 class IgnoredUser(Base):
     __tablename__ = "ignored_user"
+    __table_args__ = (
+        UniqueConstraint('username', 'server_id', name='uq_ignored_user_username_server'),
+    )
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
+    username = Column(String, index=True)
     server_id = Column(Integer, ForeignKey("server.id", ondelete="CASCADE"))
     server = relationship("Server", back_populates="ignored_users")
 
