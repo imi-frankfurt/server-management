@@ -1,26 +1,36 @@
-from fastapi import Request, HTTPException
-from typing import List
+from fastapi import Depends, HTTPException
+from typing import List, Dict
+from services.authentication_service import verify_token
 
-def get_current_user(request: Request):
-    """Prüft ob der Benutzer eingeloggt ist"""
-    user = request.session.get('user')
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return user
+def get_token_data(token_data: Dict = Depends(verify_token)) -> Dict:
+    """
+    Dependency to get and verify the bearer token.
+    Returns the complete token data including user info and roles.
+    """
+    return token_data
 
-def get_user_roles(request: Request) -> List[str]:
-    """Gibt alle Rollen des Benutzers zurück"""
-    roles = request.session.get('roles', [])
-    return roles
+def get_current_user(token_data: Dict = Depends(get_token_data)) -> Dict:
+    """
+    Extract user information from the verified token.
+    """
+    return token_data["user_info"]
+
+def get_user_roles(token_data: Dict = Depends(get_token_data)) -> List[str]:
+    """
+    Extract user roles from the verified token.
+    """
+    return token_data["roles"]
 
 def require_role(required_role: str):
-    """Dependency Factory: Prüft ob Benutzer eine bestimmte Rolle hat"""
-    def role_checker(request: Request):
-        roles = request.session.get('roles', [])
+    """
+    Dependency factory: Check if the user has a specific role.
+    """
+    def role_checker(token_data: Dict = Depends(get_token_data)):
+        roles = token_data["roles"]
         if required_role not in roles:
             raise HTTPException(
                 status_code=403, 
-                detail=f"Zugriff verweigert: Rolle '{required_role}' erforderlich"
+                detail=f"Access denied: Role '{required_role}' required"
             )
         return roles
     return role_checker

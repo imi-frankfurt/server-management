@@ -16,7 +16,7 @@ def get_blacklist_db(session: Session):
                 "created_at": item.created_at,
                 "updated_at": item.updated_at
             })
-        return success_response(data=blacklist_list, message="Blacklisted users fetched successfully")
+        return blacklist_list
     except Exception as e:
         error_response(f"Failed to fetch blacklist: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -33,6 +33,6 @@ def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session):
         new_blacklist_entry = models.IgnoredUser(username=blacklist.username, server_id=blacklist.server_id)
         session.add(new_blacklist_entry)
         session.commit()
-        return success_response(data={"id": new_blacklist_entry.id, "username": new_blacklist_entry.username, "server_id": new_blacklist_entry.server_id, "created_at": new_blacklist_entry.created_at, "updated_at": new_blacklist_entry.updated_at}, message="User added to blacklist successfully")
+        return {"id": new_blacklist_entry.id, "username": new_blacklist_entry.username, "server_id": new_blacklist_entry.server_id, "created_at": new_blacklist_entry.created_at, "updated_at": new_blacklist_entry.updated_at}
     except Exception as e:
         error_response(f"Failed to add user to blacklist: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)

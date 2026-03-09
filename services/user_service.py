@@ -42,7 +42,7 @@ def fetch_users_keycloak():
             
             user_list.append(user_data)
         
-        return success_response(data=user_list, message="Users fetched successfully")
+        return user_list
     except Exception as e:
         error_response(f"Failed to fetch users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -56,16 +56,20 @@ def get_users_local_db(session: Session):
             pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == user.id).all()
             pubkey_list = [pk.key_content for pk in pubkeys]
             
+            # Get assigned servers count
+            assigned_servers_count = len(user.servers)
+            
             user_list.append({
                 "id": user.id,
                 "keycloak_id": user.keycloak_id,
                 "username": user.username,
                 "pubKey": pubkey_list,
+                "assigned_servers_count": assigned_servers_count,
                 "created_at": user.created_at,
                 "updated_at": user.updated_at
             })
         
-        return success_response(data=user_list, message="Local users fetched successfully")
+        return user_list
     except Exception as e:
         error_response(f"Failed to fetch local users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -80,8 +84,26 @@ def get_user_by_id(session: Session, user_id: str):
         pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == user.id).all()
         pubkey_list = [pk.key_content for pk in pubkeys]
         
-        user_info = {"id": user.id, "keycloak_id": user.keycloak_id, "username": user.username, "pubKey": pubkey_list, "created_at": user.created_at, "updated_at": user.updated_at}
-        return success_response(data=user_info, message="User fetched successfully")
+        # Get all servers assigned to this user
+        assigned_servers = []
+        for server in user.servers:  # Using the relationship defined in models
+            assigned_servers.append({
+                "id": server.id,
+                "name": server.name,
+                "ip": server.ip,
+                "created_at": server.created_at,
+                "updated_at": server.updated_at
+            })
+        
+        return {
+            "id": user.id,
+            "keycloak_id": user.keycloak_id,
+            "username": user.username,
+            "pubKey": pubkey_list,
+            "assigned_servers": assigned_servers,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        }
     except Exception as e:
         error_response(f"Failed to fetch user: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -165,14 +187,11 @@ def sync_users(session: Session):
         session.commit()
         
         if len(added_users) > 0 or len(updated_users) > 0:
-            return success_response(
-                data={
-                    "added_users": added_users,
-                    "updated_users": updated_users
-                },
-                message=f"Sync complete: {len(added_users)} users added, {len(updated_users)} users updated"
-            )
-        return success_response(message="All users are already synchronized")
+            return {
+                "added_users": added_users,
+                "updated_users": updated_users
+            }
+        return {"message": "All users are already synchronized"}
     except Exception as e:
         session.rollback()
         error_response(f"Failed to synchronize users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -201,7 +220,42 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
         create_association = models.user_server.insert().values(user_id=server_user.user_id, server_id=server_user.server_id, primary_user=server_user.primary_user)
         session.execute(create_association)
         session.commit()
-        return success_response(message="User assigned to server successfully")
+        return {"message": "User assigned to server successfully"}
     except Exception as e:
         session.rollback()
         error_response(f"Failed to assign user to server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def unassign_user_from_server(user_id: int, server_id: int, session: Session):
+    """
+    Remove a user's access to a server by deleting the association.
+    """
+    try:
+        user = session.query(models.User).filter(models.User.id == user_id).first()
+        server = session.query(models.Server).filter(models.Server.id == server_id).first()
+        
+        if not user:
+            error_response("User not found", status.HTTP_404_NOT_FOUND)
+        
+        if not server:
+            error_response("Server not found", status.HTTP_404_NOT_FOUND)
+        
+        # Check if association exists
+        association = session.query(models.user_server).filter(
+            models.user_server.c.user_id == user_id,
+            models.user_server.c.server_id == server_id
+        ).first()
+        
+        if not association:
+            error_response("User is not assigned to this server", status.HTTP_404_NOT_FOUND)
+        
+        # Delete association
+        delete_association = models.user_server.delete().where(
+            models.user_server.c.user_id == user_id,
+            models.user_server.c.server_id == server_id
+        )
+        session.execute(delete_association)
+        session.commit()
+        return {"message": "User removed from server successfully"}
+    except Exception as e:
+        session.rollback()
+        error_response(f"Failed to remove user from server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -3,7 +3,7 @@ from db import models
 from db.database import getSession
 from core.dependencies import get_current_user, require_role
 from sqlalchemy.orm import Session
-from services.user_service import get_users_local_db, sync_users, get_user_by_id, assign_user_to_server
+from services.user_service import get_users_local_db, sync_users, get_user_by_id, assign_user_to_server, unassign_user_from_server
 from schemas.serialized_models import UserSerialized, UserAssignmentSerialized
 router = APIRouter(
         prefix="/api",
@@ -27,4 +27,8 @@ def assign_user(server_user : UserAssignmentSerialized, request: Request, sessio
 @router.get("/user/{keycloak_id}", status_code=status.HTTP_200_OK)
 def get_user(keycloak_id: str, request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):
     return get_user_by_id(session, keycloak_id)
+
+@router.post("/user/unassign", status_code=status.HTTP_200_OK)
+def unassign_user_from_server_endpoint(server_user: UserAssignmentSerialized, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role"))):
+    return unassign_user_from_server(server_user.user_id, server_user.server_id, session)
     

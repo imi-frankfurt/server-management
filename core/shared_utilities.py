@@ -12,20 +12,16 @@ def record_exists(session, model, **kwargs) -> bool:
 
 
 def success_response(data=None, message: str = "Success", status_code: int = 200):
-    return {
-        "status": "success",
-        "message": message,
-        "data": data
-    }
+    # Return data directly without wrapper
+    if data is not None:
+        return data
+    return {"message": message}
 
 
 def error_response(message: str, status_code: int = 400):
     raise HTTPException(
         status_code=status_code,
-        detail={
-            "status": "error",
-            "message": message
-        }
+        detail=message
     )
 
 

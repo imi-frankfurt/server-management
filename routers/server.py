@@ -28,6 +28,7 @@ def get_server(server_id: int, request: Request, session: Session = Depends(getS
 def update_server(server_id: int, server: ServerSerialized, request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role"))):
     return update_server_by_id(server_id, server, session)
 
-@router.delete("/server/{server_id}", status_code=status.HTTP_200_OK)
+@router.delete("/server/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_server(server_id: int, request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role"))):
-    return delete_server_by_id(server_id, session)
+    delete_server_by_id(server_id, session)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
