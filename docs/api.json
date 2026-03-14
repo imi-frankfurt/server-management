@@ -837,9 +837,15 @@
                         "example": "test-user",
                         "type": "string"
                       },
-                      "server_id": {
-                        "example": 12345,
-                        "type": "integer"
+                      "servers": {
+                         "example": [
+                          "12345",
+                          "67890"
+                        ],
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
                       },
                       "created_at": {
                         "format": "date-time",

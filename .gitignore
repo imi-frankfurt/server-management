@@ -219,3 +219,6 @@ __marimo__/
 .idea/
 
 db-data/
+
+certs/
+*.pem

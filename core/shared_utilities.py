@@ -4,10 +4,6 @@ def check_duplicate(session, model, **kwargs):
     return session.query(model).filter_by(**kwargs).first() is not None
 
 def record_exists(session, model, **kwargs) -> bool:
-    """
-    Check if a record exists in the given model with the specified filter criteria.
-    Usage: record_exists(session, User, id=5)
-    """
     return session.query(model).filter_by(**kwargs).first() is not None
 
 

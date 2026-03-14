@@ -28,9 +28,10 @@ services:
   python-app:
     build: .
     container_name: fastapiapp
-    command: ["/wait-for-it.sh", "database:5432", "--", "fastapi", "dev", "app.py", "--host", "0.0.0.0", "--port", "5000"]
+    command: ["/wait-for-it.sh", "database:5432", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000", "--ssl-keyfile", "/certs/localhost+2-key.pem", "--ssl-certfile", "/certs/localhost+2.pem"]
     volumes:
       - .:/code
+      - ./certs:/certs:ro  # Mount certificates as read-only
     ports:
       - "5000:5000"
     env_file:

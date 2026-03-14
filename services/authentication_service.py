@@ -20,18 +20,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/callback")
 security = HTTPBearer(auto_error=True)
     
 def create_auth_url(redirect_uri: str = None):
-    """
-    Generate Keycloak login URL.
-    If redirect_uri is provided, use it. Otherwise use env variable.
-    """
     uri = redirect_uri or os.getenv("KEYCLOAK_REDIRECT_URI")
     return keycloak_openid.auth_url(redirect_uri=uri, scope=os.getenv("KEYCLOAK_SCOPE"))
 
-def callback_token(code: str, redirect_uri: str = None) -> Dict:
-    """
-    Exchange authorization code for access token.
-    If redirect_uri is provided, use it. Otherwise use env variable.
-    """
+from fastapi import Response
+
+def callback_token(code: str, response: Response, redirect_uri: str = None) -> Dict:
     try:
         uri = redirect_uri or os.getenv("KEYCLOAK_REDIRECT_URI")
         token = keycloak_openid.token(
@@ -40,10 +34,32 @@ def callback_token(code: str, redirect_uri: str = None) -> Dict:
             redirect_uri=uri
         )
         
+        # Set access token cookie
+        response.set_cookie(
+            key="access_token",
+            value=token['access_token'],
+            httponly=True,
+            secure=True,  # Required for SameSite=None
+            samesite="none",  # Required for cross-origin cookies
+            path="/",
+            max_age=token.get('expires_in', 3600)
+        )
+
+        # Set refresh token cookie if present
+        if token.get('refresh_token'):
+            response.set_cookie(
+                key="refresh_token",
+                value=token['refresh_token'],
+                httponly=True,
+                secure=True,  # Required for SameSite=None
+                samesite="none",  # Required for cross-origin cookies
+                path="/",
+                max_age=2592000  # 30 days
+            )
+        
         return {
-            "access_token": token['access_token'],
-            "refresh_token": token.get('refresh_token'),
-            "token_type": "bearer",
+            "status": "success",
+            "message": "Authentication successful",
             "expires_in": token.get('expires_in')
         }
     except Exception as e:
@@ -52,39 +68,20 @@ def callback_token(code: str, redirect_uri: str = None) -> Dict:
             detail=f"Login failed: {str(e)}"
         )
 
-def direct_login(username: str, password: str) -> Dict:
-    """
-    Direct username/password login - returns bearer token.
-    Simpler for frontend apps without OAuth2 redirect flow.
-    """
-    try:
-        token = keycloak_openid.token(
-            grant_type='password',
-            username=username,
-            password=password
-        )
-        
-        return {
-            "access_token": token['access_token'],
-            "refresh_token": token.get('refresh_token'),
-            "token_type": "bearer",
-            "expires_in": token.get('expires_in')
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid credentials: {str(e)}"
-        )
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict:
-    """
-    Verify and decode the bearer token from the Authorization header.
-    Returns the decoded token payload with user info and roles.
-    """
+def verify_token(request: Request) -> Dict:
     try:
-        token = credentials.credentials
-        
-        # Decode token to get roles and other claims first (faster, no network call)
+        token = request.cookies.get("access_token")
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No authentication token found"
+                )
+          
         try:
             decoded_token = jwt.decode(
                 token,
@@ -104,7 +101,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        # Verify token with Keycloak (optional, comment out for faster validation)
         try:
             user_info = keycloak_openid.userinfo(token)
         except Exception as e:

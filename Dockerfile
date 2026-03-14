@@ -1,4 +1,3 @@
-# Dockerfile
 FROM python:3.14
 
 WORKDIR /code
@@ -11,4 +10,5 @@ COPY . .
 COPY wait-for-it.sh /wait-for-it.sh
 RUN chmod +x /wait-for-it.sh
 
-CMD ["fastapi", "run", "app.py", "--port", "80"]
+# Default command (overridden by docker-compose)
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000"]

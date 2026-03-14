@@ -43,9 +43,14 @@ origins = [
     "http://127.0.0.1:8080",
     "*"
 ]
+
+FRONTEND_ORIGINS = [
+    "http://localhost:3000",
+    "https://localhost:3000",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=FRONTEND_ORIGINS,  # Exact origins, not wildcard
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],

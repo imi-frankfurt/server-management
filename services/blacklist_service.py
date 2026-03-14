@@ -9,10 +9,12 @@ def get_blacklist_db(session: Session):
         blacklist_users = session.query(models.IgnoredUser).all()
         blacklist_list = []
         for item in blacklist_users:
+            servers = session.query(models.Server).filter(models.Server.id == item.server_id).all()
+            server_list = [sv.id for sv in servers] if servers else []
             blacklist_list.append({
                 "id": item.id,
                 "username": item.username,
-                "server_id": item.server_id,
+                "servers": server_list,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at
             })
