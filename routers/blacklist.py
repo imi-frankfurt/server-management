@@ -25,7 +25,7 @@ def unassign_from_blacklist(
     user: dict = Depends(get_current_user),
     _roles = Depends(require_role("admin-role"))
 ):
-    return remove_from_blacklist_db(session, payload.username, payload.server_id)
+    return remove_from_blacklist_db(payload, session)
 
 @router.get("/blacklist/{blacklist_id:int}", status_code=200)
 def get_blacklist(blacklist_id: int, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):

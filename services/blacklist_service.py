@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from core.shared_utilities import error_response, success_response, check_duplicate
 from db import models
 from sqlalchemy.orm import Session
-from schemas.serialized_models import BlacklistEntrySerialized
+from schemas.serialized_models import BlacklistEntrySerialized, BlacklistUnassignSerialized
 from services.activity_log_service import create_activity_log
 
 def get_blacklist_db(session: Session):
@@ -65,15 +65,21 @@ def get_blacklist_by_id(session: Session, blacklist_id: int):
     except Exception as e:
         error_response(f"Failed to fetch blacklist entry: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def remove_from_blacklist_db(session: Session, username: str, server_id: int):
+def remove_from_blacklist_db(blacklist: BlacklistUnassignSerialized, session: Session):
     try:
         blacklist_entry = session.query(models.IgnoredUser).filter(
-            models.IgnoredUser.username == username,
-            models.IgnoredUser.server_id == server_id
+            models.IgnoredUser.username == blacklist.username,
+            models.IgnoredUser.server_id == blacklist.server_id
         ).first()
         if not blacklist_entry:
             error_response("Blacklist entry not found", status.HTTP_404_NOT_FOUND)
         session.delete(blacklist_entry)
+        create_activity_log(
+            session,
+            action="delete",
+            resource="blacklist",
+            details=f"server_id={blacklist.server_id};username={blacklist.username}",
+        )
         session.commit()
         return success_response("User removed from blacklist successfully")
     except Exception as e:

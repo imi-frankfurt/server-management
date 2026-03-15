@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from core.dependencies import get_current_user, require_role
 from db.database import getSession
-from services.activity_log_service import get_activity_status
+from services.activity_log_service import get_activity_status, get_logs
 
 
 router = APIRouter(
@@ -11,6 +11,16 @@ router = APIRouter(
     tags=["Activity Logs"],
 )
 
+@router.get("/activity/logs", status_code=status.HTTP_200_OK)
+def get_activity_logs(
+    action: str | None = None,
+    resource: str | None = None,
+    limit: int = 100,
+    session: Session = Depends(getSession),
+    user: dict = Depends(get_current_user),
+    _roles=Depends(require_role("read-only-role")),
+):
+    return get_logs(session, action=action, resource=resource, limit=limit)
 
 @router.get("/activity/status", status_code=status.HTTP_200_OK)
 def get_last_activity(
