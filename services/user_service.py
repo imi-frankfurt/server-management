@@ -111,6 +111,8 @@ def sync_users(session: Session):
     try:
         added_users = []
         updated_users = []
+        deleted_users = []
+        processed_user_ids = set()
         
         # Get All users from Keycloak
         keycloak_users = keycloak_admin.get_users({})
@@ -129,14 +131,22 @@ def sync_users(session: Session):
                 elif isinstance(pubkey_data, str) and pubkey_data:
                     kc_pubkeys = [pubkey_data]
             
-            # Find if user exists in local DB
+            # Find if user exists in local DB.
+            # Primary match is keycloak_id, but if a Keycloak account was recreated,
+            # username can stay the same while keycloak_id changes.
             db_user = session.query(models.User).filter(models.User.keycloak_id == kc_id).first()
+            if not db_user:
+                db_user = session.query(models.User).filter(models.User.username == kc_username).first()
+                if db_user and db_user.keycloak_id != kc_id:
+                    db_user.keycloak_id = kc_id
+                    print(f"Updated keycloak_id for existing user: {kc_username}")
             
             if not db_user:
                 # User doesn't exist - add new user
                 new_user = models.User(keycloak_id=kc_id, username=kc_username)
                 session.add(new_user)
                 session.flush()  # Get the user ID
+                processed_user_ids.add(new_user.id)
                 
                 # Add all public keys
                 for kc_pubkey in kc_pubkeys:
@@ -146,6 +156,7 @@ def sync_users(session: Session):
                 added_users.append({"username": kc_username, "keycloak_id": kc_id, "pubkeys_count": len(kc_pubkeys)})
                 print(f"Added new user: {kc_username} with {len(kc_pubkeys)} public key(s)")
             else:
+                processed_user_ids.add(db_user.id)
                 # User exists - sync public keys
                 existing_pubkeys = session.query(models.PublicKey).filter(
                     models.PublicKey.user_id == db_user.id
@@ -183,13 +194,25 @@ def sync_users(session: Session):
                         "keys_added": len(keys_to_add),
                         "keys_removed": len(keys_to_remove)
                     })
+
+        # Remove users that no longer exist in Keycloak.
+        # Keep only users processed from current Keycloak snapshot.
+        local_users = session.query(models.User).all()
+        for local_user in local_users:
+            if local_user.id not in processed_user_ids:
+                deleted_users.append({
+                    "username": local_user.username,
+                    "keycloak_id": local_user.keycloak_id
+                })
+                session.delete(local_user)
         
         session.commit()
         
-        if len(added_users) > 0 or len(updated_users) > 0:
+        if len(added_users) > 0 or len(updated_users) > 0 or len(deleted_users) > 0:
             return {
                 "added_users": added_users,
-                "updated_users": updated_users
+                "updated_users": updated_users,
+                "deleted_users": deleted_users
             }
         return {"message": "All users are already synchronized"}
     except Exception as e:
