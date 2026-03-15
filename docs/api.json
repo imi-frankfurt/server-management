@@ -480,6 +480,10 @@
                             "ip": {
                               "type": "string"
                             },
+                            "primary_user": {
+                              "description": "Whether the user is the primary user for this server assignment",
+                              "type": "boolean"
+                            },
                             "assigned_at": {
                               "format": "date-time",
                               "type": "string"
@@ -588,6 +592,10 @@
                           "ip": {
                             "type": "string"
                           },
+                          "primary_user": {
+                            "description": "Whether the user is the primary user for this server assignment",
+                            "type": "boolean"
+                          },
                           "assigned_at": {
                             "format": "date-time",
                             "type": "string"
@@ -650,6 +658,10 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "primary_user": {
+                    "example": false,
+                    "type": "boolean"
+                  },
                   "server_id": {
                     "example": 12345,
                     "type": "integer"

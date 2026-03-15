@@ -72,6 +72,7 @@ def get_users_local_db(session: Session):
                     "id": server.id,
                     "name": server.name,
                     "ip": server.ip,
+                    "primary_user": bool(getattr(assignment, "primary_user", False)),
                     "assigned_at": assignment.created_at,
                     "assignment_updated_at": assignment.updated_at
                 })
@@ -118,6 +119,7 @@ def get_user_by_id(session: Session, user_id: str):
                 "id": server.id,
                 "name": server.name,
                 "ip": server.ip,
+                "primary_user": bool(getattr(assignment, "primary_user", False)) if assignment else False,
                 "assigned_at": assignment.created_at if assignment else None,
                 "assignment_updated_at": assignment.updated_at if assignment else None,
                 "created_at": server.created_at,
@@ -280,6 +282,7 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
         create_association = models.user_server.insert().values(
             user_id=server_user.user_id,
             server_id=server_user.server_id,
+            primary_user=server_user.primary_user,
         )
         session.execute(create_association)
         create_activity_log(
