@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint, Index
 from sqlalchemy.orm import declarative_base, relationship
 
 
@@ -55,12 +55,24 @@ class PublicKey(Base):
     user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"))
     user = relationship("User", back_populates="public_keys")
 
+
+class ActivityLog(Base):
+    __tablename__ = "activity_log"
+    __table_args__ = (
+        Index("ix_activity_log_action_created_at", "action", "created_at"),
+        Index("ix_activity_log_resource_created_at", "resource", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False, index=True)  # post | put | sync
+    resource = Column(String, nullable=False, index=True)
+    details = Column(Text, nullable=True)
+
 user_server = Table(
     'user_server',
     Base.metadata,
     Column('user_id', Integer, ForeignKey('user.id', ondelete="CASCADE"), primary_key=True),
     Column('server_id', Integer, ForeignKey('server.id', ondelete="CASCADE"), primary_key=True),
-    Column('primary_user', Boolean, default=False),
     Column('created_at', DateTime, default=datetime.now),
     Column('updated_at', DateTime, default=datetime.now, onupdate=datetime.now)
 )

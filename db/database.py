@@ -1,7 +1,8 @@
 import os
+from datetime import datetime
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker, Session as OrmSession
 from dotenv import load_dotenv
 from db.models import Base
 
@@ -19,6 +20,12 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+@event.listens_for(OrmSession, "before_flush")
+def auto_update_timestamps(session, flush_context, instances):
+    for obj in session.dirty:
+        if hasattr(obj, "updated_at"):
+            obj.updated_at = datetime.now()
 
 def init_db():
     Base.metadata.create_all(bind=engine)

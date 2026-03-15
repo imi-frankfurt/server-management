@@ -3,6 +3,7 @@ from core.shared_utilities import error_response, success_response, check_duplic
 from db import models
 from sqlalchemy.orm import Session
 from schemas.serialized_models import BlacklistEntrySerialized
+from services.activity_log_service import create_activity_log
 
 def get_blacklist_db(session: Session):
     try:
@@ -34,6 +35,12 @@ def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session):
         
         new_blacklist_entry = models.IgnoredUser(username=blacklist.username, server_id=blacklist.server_id)
         session.add(new_blacklist_entry)
+        create_activity_log(
+            session,
+            action="post",
+            resource="blacklist",
+            details=f"server_id={blacklist.server_id};username={blacklist.username}",
+        )
         session.commit()
         return {"id": new_blacklist_entry.id, "username": new_blacklist_entry.username, "server_id": new_blacklist_entry.server_id, "created_at": new_blacklist_entry.created_at, "updated_at": new_blacklist_entry.updated_at}
     except Exception as e:

@@ -12,7 +12,6 @@ class UserSerialized(BaseModel):
 class UserAssignmentSerialized(BaseModel):
     user_id: int
     server_id: int
-    primary_user: bool = False
 
 class BlacklistEntrySerialized(BaseModel):
     username: str

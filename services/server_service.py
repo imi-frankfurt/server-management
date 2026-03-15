@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 from schemas.serialized_models import ServerSerialized
 from core.shared_utilities import check_duplicate
 from datetime import datetime
+from services.activity_log_service import create_activity_log
+
+
 def create_server(server: ServerSerialized, response: Response, session: Session = Depends(getSession)):
     if check_duplicate(session, models.Server, name=server.name):
         error_response("Server with this name already exists", status.HTTP_409_CONFLICT)
@@ -30,6 +33,8 @@ def create_server(server: ServerSerialized, response: Response, session: Session
     if len(alias_list) > 0:
         for alias in alias_list:
             session.add(alias)
+
+    create_activity_log(session, action="post", resource="server", details=f"server_id={new_server.id}")
 
     session.commit()
     response.status_code = status.HTTP_201_CREATED
@@ -101,6 +106,8 @@ def update_server_by_id(server_id: int, server: ServerSerialized, session: Sessi
         
         for alias_obj in new_alias_objs:
             session.add(alias_obj)
+
+        create_activity_log(session, action="put", resource="server", details=f"server_id={existing_server.id}")
         
         session.commit()
         session.refresh(existing_server)

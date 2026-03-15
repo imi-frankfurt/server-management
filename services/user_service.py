@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import Depends, HTTPException, Response, status
 from keycloak import KeycloakOpenIDConnection
 from keycloak import KeycloakAdmin
@@ -7,6 +8,7 @@ from core.shared_utilities import check_duplicate, error_response, success_respo
 from db import models
 from sqlalchemy.orm import Session
 from schemas.serialized_models import UserAssignmentSerialized
+from services.activity_log_service import create_activity_log
 
 load_dotenv()
 
@@ -56,14 +58,32 @@ def get_users_local_db(session: Session):
             pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == user.id).all()
             pubkey_list = [pk.key_content for pk in pubkeys]
             
-            # Get assigned servers count
-            assigned_servers_count = len(user.servers)
+            # Read assignments from relation table so we can expose assignment metadata.
+            assignments = session.query(models.user_server).filter(
+                models.user_server.c.user_id == user.id
+            ).all()
+            servers_by_id = {server.id: server for server in user.servers}
+            assigned_servers = []
+            for assignment in assignments:
+                server = servers_by_id.get(assignment.server_id)
+                if not server:
+                    continue
+                assigned_servers.append({
+                    "id": server.id,
+                    "name": server.name,
+                    "ip": server.ip,
+                    "assigned_at": assignment.created_at,
+                    "assignment_updated_at": assignment.updated_at
+                })
+
+            assigned_servers_count = len(assigned_servers)
             
             user_list.append({
                 "id": user.id,
                 "keycloak_id": user.keycloak_id,
                 "username": user.username,
                 "pubKey": pubkey_list,
+                "assigned_servers": assigned_servers,
                 "assigned_servers_count": assigned_servers_count,
                 "created_at": user.created_at,
                 "updated_at": user.updated_at
@@ -84,13 +104,22 @@ def get_user_by_id(session: Session, user_id: str):
         pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == user.id).all()
         pubkey_list = [pk.key_content for pk in pubkeys]
         
+        # Get all servers assigned to this user including relation metadata.
+        assignments = session.query(models.user_server).filter(
+            models.user_server.c.user_id == user.id
+        ).all()
+        assignment_by_server_id = {assignment.server_id: assignment for assignment in assignments}
+
         # Get all servers assigned to this user
         assigned_servers = []
         for server in user.servers:  # Using the relationship defined in models
+            assignment = assignment_by_server_id.get(server.id)
             assigned_servers.append({
                 "id": server.id,
                 "name": server.name,
                 "ip": server.ip,
+                "assigned_at": assignment.created_at if assignment else None,
+                "assignment_updated_at": assignment.updated_at if assignment else None,
                 "created_at": server.created_at,
                 "updated_at": server.updated_at
             })
@@ -188,6 +217,7 @@ def sync_users(session: Session):
                         print(f"Removed public key for user: {kc_username}")
                 
                 if changes:
+                    db_user.updated_at = datetime.now()
                     updated_users.append({
                         "username": kc_username,
                         "changes": changes,
@@ -205,6 +235,13 @@ def sync_users(session: Session):
                     "keycloak_id": local_user.keycloak_id
                 })
                 session.delete(local_user)
+
+        create_activity_log(
+            session,
+            action="sync",
+            resource="user",
+            details=f"added={len(added_users)};updated={len(updated_users)};deleted={len(deleted_users)}",
+        )
         
         session.commit()
         
@@ -240,8 +277,17 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
             error_response("User is already assigned to this server", status.HTTP_400_BAD_REQUEST)
         
         # Create association
-        create_association = models.user_server.insert().values(user_id=server_user.user_id, server_id=server_user.server_id, primary_user=server_user.primary_user)
+        create_association = models.user_server.insert().values(
+            user_id=server_user.user_id,
+            server_id=server_user.server_id,
+        )
         session.execute(create_association)
+        create_activity_log(
+            session,
+            action="post",
+            resource="user_assignment",
+            details=f"user_id={server_user.user_id};server_id={server_user.server_id}",
+        )
         session.commit()
         return {"message": "User assigned to server successfully"}
     except Exception as e:
@@ -277,6 +323,12 @@ def unassign_user_from_server(user_id: int, server_id: int, session: Session):
             models.user_server.c.server_id == server_id
         )
         session.execute(delete_association)
+        create_activity_log(
+            session,
+            action="post",
+            resource="user_unassign",
+            details=f"user_id={user_id};server_id={server_id}",
+        )
         session.commit()
         return {"message": "User removed from server successfully"}
     except Exception as e:

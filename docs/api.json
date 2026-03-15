@@ -610,16 +610,12 @@
     },
     "/api/user/assign": {
       "post": {
-        "description": "Assigns a user to a server with optional primary user flag. Requires admin role.",
+        "description": "Assigns a user to a server. Requires admin role.",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "properties": {
-                  "primary_user": {
-                    "example": false,
-                    "type": "boolean"
-                  },
                   "server_id": {
                     "example": 12345,
                     "type": "integer"
@@ -816,6 +812,51 @@
         "summary": "Sync users from Keycloak",
         "tags": [
           "User"
+        ]
+      }
+    },
+    "/api/activity/status": {
+      "get": {
+        "description": "Returns the latest synchronization timestamp and the latest update timestamp across POST/PUT operations.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "last_synced": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "last_updated": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "server_time": {
+                      "format": "date-time",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Activity timestamps fetched successfully"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          }
+        },
+        "security": [
+          {
+            "OIDC": []
+          }
+        ],
+        "summary": "Get latest sync and update timestamps",
+        "tags": [
+          "Activity Logs"
         ]
       }
     },
