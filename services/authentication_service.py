@@ -1,14 +1,19 @@
 
 import os
+import json
+import time
+import logging
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from fastapi import Depends, Request, status, HTTPException
 from dotenv import load_dotenv
 from keycloak import KeycloakOpenID
-from typing import Dict
+from typing import Dict, Any, Optional
 
 from core.shared_utilities import error_response
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 keycloak_openid = KeycloakOpenID(
     server_url=os.getenv("KEYCLOAK_URL"),
@@ -18,6 +23,103 @@ keycloak_openid = KeycloakOpenID(
 )
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/callback")
 security = HTTPBearer(auto_error=True)
+
+_JWKS_CACHE: Dict[str, Any] = {"keys": None, "expires_at": 0.0}
+_JWKS_CACHE_TTL_SECONDS = 300
+
+
+def _normalize_issuer_base(url: Optional[str]) -> str:
+    if not url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Keycloak URL is not configured"
+        )
+    return url.rstrip("/")
+
+
+def _expected_issuer() -> str:
+    base_url = _normalize_issuer_base(os.getenv("KEYCLOAK_URL"))
+    realm = os.getenv("KEYCLOAK_REALM")
+    if not realm:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Keycloak realm is not configured"
+        )
+    return f"{base_url}/realms/{realm}"
+
+
+def _get_jwks() -> Dict[str, Any]:
+    now = time.time()
+    if _JWKS_CACHE["keys"] and now < _JWKS_CACHE["expires_at"]:
+        return _JWKS_CACHE["keys"]
+
+    certs = keycloak_openid.certs()
+    if not isinstance(certs, dict) or "keys" not in certs:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unable to load Keycloak JWKS",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    _JWKS_CACHE["keys"] = certs
+    _JWKS_CACHE["expires_at"] = now + _JWKS_CACHE_TTL_SECONDS
+    return certs
+
+
+def _select_signing_key(token: str):
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token header",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    kid = unverified_header.get("kid")
+    if not kid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing key id",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    jwks = _get_jwks()
+    signing_jwk = next((key for key in jwks.get("keys", []) if key.get("kid") == kid), None)
+    if not signing_jwk:
+        # Key rotation may have happened, refresh once and retry.
+        _JWKS_CACHE["expires_at"] = 0
+        jwks = _get_jwks()
+        signing_jwk = next((key for key in jwks.get("keys", []) if key.get("kid") == kid), None)
+
+    if not signing_jwk:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No matching signing key found",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    return jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(signing_jwk))
+
+
+def _validate_audience(decoded_token: Dict[str, Any]) -> None:
+    client_id = os.getenv("KEYCLOAK_CLIENT_ID")
+    if not client_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Keycloak client id is not configured"
+        )
+
+    aud_claim = decoded_token.get("aud", [])
+    aud_values = [aud_claim] if isinstance(aud_claim, str) else aud_claim
+    azp_claim = decoded_token.get("azp")
+
+    if client_id not in aud_values and azp_claim != client_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token audience",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
 def create_auth_url(redirect_uri: str = None):
     uri = redirect_uri or os.getenv("KEYCLOAK_REDIRECT_URI")
@@ -82,16 +184,35 @@ def verify_token(request: Request) -> Dict:
                     detail="No authentication token found"
                 )
           
+        signing_key = _select_signing_key(token)
+
         try:
             decoded_token = jwt.decode(
                 token,
-                options={"verify_signature": False, "verify_aud": False},
-                algorithms=["RS256"]
+                key=signing_key,
+                algorithms=["RS256"],
+                issuer=_expected_issuer(),
+                options={
+                    "require": ["exp", "iat", "iss", "sub"],
+                },
             )
+            _validate_audience(decoded_token)
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        except jwt.InvalidIssuerError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token issuer",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        except jwt.ImmatureSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token is not active yet",
                 headers={"WWW-Authenticate": "Bearer"}
             )
         except jwt.InvalidTokenError as e:
@@ -100,18 +221,15 @@ def verify_token(request: Request) -> Dict:
                 detail=f"Invalid token: {str(e)}",
                 headers={"WWW-Authenticate": "Bearer"}
             )
-        
-        try:
-            user_info = keycloak_openid.userinfo(token)
-        except Exception as e:
-            print(f"Warning: Could not verify token with Keycloak: {e}")
-            # Fallback to decoded token data if Keycloak verification fails
-            user_info = {
-                "sub": decoded_token.get("sub"),
-                "preferred_username": decoded_token.get("preferred_username"),
-                "email": decoded_token.get("email"),
-                "name": decoded_token.get("name")
-            }
+
+        # Build identity from verified JWT claims. This avoids insecure auth fallback when
+        # upstream userinfo requests fail or return transient errors.
+        user_info = {
+            "sub": decoded_token.get("sub"),
+            "preferred_username": decoded_token.get("preferred_username"),
+            "email": decoded_token.get("email"),
+            "name": decoded_token.get("name")
+        }
         
         # Extract client roles
         client_id = os.getenv("KEYCLOAK_CLIENT_ID")
@@ -131,11 +249,9 @@ def verify_token(request: Request) -> Dict:
         # Re-raise HTTPExceptions as-is
         raise
     except Exception as e:
-        print(f"Error in verify_token: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error validating authentication token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Could not validate credentials: {str(e)}",
+            detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"}
         )

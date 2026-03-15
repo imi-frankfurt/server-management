@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 import os
 import json
@@ -57,7 +56,6 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET"))
 app.include_router(auth.router)
 app.include_router(server.router)
 app.include_router(user.router)
