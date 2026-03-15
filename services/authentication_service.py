@@ -26,6 +26,19 @@ security = HTTPBearer(auto_error=True)
 
 _JWKS_CACHE: Dict[str, Any] = {"keys": None, "expires_at": 0.0}
 _JWKS_CACHE_TTL_SECONDS = 300
+_ISSUER_CACHE: Dict[str, Any] = {"issuers": None, "expires_at": 0.0}
+_ISSUER_CACHE_TTL_SECONDS = 300
+
+
+def _cookie_secure_enabled() -> bool:
+    return os.getenv("COOKIE_SECURE", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _cookie_samesite_value() -> str:
+    # SameSite=None requires Secure=true in modern browsers.
+    if _cookie_secure_enabled():
+        return "none"
+    return os.getenv("COOKIE_SAMESITE", "lax").strip().lower()
 
 
 def _normalize_issuer_base(url: Optional[str]) -> str:
@@ -37,7 +50,7 @@ def _normalize_issuer_base(url: Optional[str]) -> str:
     return url.rstrip("/")
 
 
-def _expected_issuer() -> str:
+def _expected_issuer_from_env() -> str:
     base_url = _normalize_issuer_base(os.getenv("KEYCLOAK_URL"))
     realm = os.getenv("KEYCLOAK_REALM")
     if not realm:
@@ -46,6 +59,44 @@ def _expected_issuer() -> str:
             detail="Keycloak realm is not configured"
         )
     return f"{base_url}/realms/{realm}"
+
+
+def _get_allowed_issuers() -> set[str]:
+    now = time.time()
+    if _ISSUER_CACHE["issuers"] and now < _ISSUER_CACHE["expires_at"]:
+        return _ISSUER_CACHE["issuers"]
+
+    issuers = set()
+
+    env_issuer = os.getenv("KEYCLOAK_ISSUER")
+    if env_issuer:
+        issuers.add(env_issuer.rstrip("/"))
+
+    issuers.add(_expected_issuer_from_env().rstrip("/"))
+
+    try:
+        well_known = keycloak_openid.well_known()
+        discovered_issuer = well_known.get("issuer") if isinstance(well_known, dict) else None
+        if discovered_issuer:
+            issuers.add(discovered_issuer.rstrip("/"))
+    except Exception:
+        logger.warning("Could not fetch Keycloak well-known issuer", exc_info=True)
+
+    _ISSUER_CACHE["issuers"] = issuers
+    _ISSUER_CACHE["expires_at"] = now + _ISSUER_CACHE_TTL_SECONDS
+    return issuers
+
+
+def _validate_issuer(decoded_token: Dict[str, Any]) -> None:
+    token_issuer = (decoded_token.get("iss") or "").rstrip("/")
+    allowed_issuers = _get_allowed_issuers()
+
+    if not token_issuer or token_issuer not in allowed_issuers:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token issuer",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
 
 
 def _get_jwks() -> Dict[str, Any]:
@@ -113,8 +164,10 @@ def _validate_audience(decoded_token: Dict[str, Any]) -> None:
     aud_claim = decoded_token.get("aud", [])
     aud_values = [aud_claim] if isinstance(aud_claim, str) else aud_claim
     azp_claim = decoded_token.get("azp")
+    resource_access = decoded_token.get("resource_access", {})
+    has_client_resource_access = isinstance(resource_access, dict) and client_id in resource_access
 
-    if client_id not in aud_values and azp_claim != client_id:
+    if client_id not in aud_values and azp_claim != client_id and not has_client_resource_access:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token audience",
@@ -129,6 +182,9 @@ from fastapi import Response
 
 def callback_token(code: str, response: Response, redirect_uri: str = None) -> Dict:
     try:
+        cookie_secure = _cookie_secure_enabled()
+        cookie_samesite = _cookie_samesite_value()
+
         uri = redirect_uri or os.getenv("KEYCLOAK_REDIRECT_URI")
         token = keycloak_openid.token(
             grant_type='authorization_code',
@@ -141,8 +197,8 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
             key="access_token",
             value=token['access_token'],
             httponly=True,
-            secure=True,  # Required for SameSite=None
-            samesite="none",  # Required for cross-origin cookies
+            secure=cookie_secure,
+            samesite=cookie_samesite,
             path="/",
             max_age=token.get('expires_in', 3600)
         )
@@ -153,8 +209,8 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
                 key="refresh_token",
                 value=token['refresh_token'],
                 httponly=True,
-                secure=True,  # Required for SameSite=None
-                samesite="none",  # Required for cross-origin cookies
+                secure=cookie_secure,
+                samesite=cookie_samesite,
                 path="/",
                 max_age=2592000  # 30 days
             )
@@ -191,22 +247,17 @@ def verify_token(request: Request) -> Dict:
                 token,
                 key=signing_key,
                 algorithms=["RS256"],
-                issuer=_expected_issuer(),
                 options={
                     "require": ["exp", "iat", "iss", "sub"],
+                    "verify_aud": False,
                 },
             )
+            _validate_issuer(decoded_token)
             _validate_audience(decoded_token)
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        except jwt.InvalidIssuerError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token issuer",
                 headers={"WWW-Authenticate": "Bearer"}
             )
         except jwt.ImmatureSignatureError:
@@ -245,7 +296,8 @@ def verify_token(request: Request) -> Dict:
             "roles": client_roles + realm_roles,  # Combine both client and realm roles
             "decoded_token": decoded_token
         }
-    except HTTPException:
+    except HTTPException as auth_exc:
+        logger.warning("Token validation rejected request: %s", auth_exc.detail)
         # Re-raise HTTPExceptions as-is
         raise
     except Exception as e:
