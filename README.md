@@ -9,6 +9,7 @@ The primary goal is to store server information in a relational database (Postgr
 - [Target Audience](#target-audience)
 - [Functional Requirements](#functional-requirements)
 - [Technology Stack](#technology-stack)
+- [Keycloak Client Settings (Local Development)](#keycloak-client-settings-local-development)
 
 ## Target Audience
 
@@ -43,3 +44,20 @@ The application centers around the "Server" entity and supports the following fe
 - **Database:** PostgreSQL - Relational database for structured server metadata
 - **Container:** Docker - Consistent deployment of application and database
 - **Authentication:** Keycloak - Handles OIDC authentication and role management
+
+## Keycloak Client Settings (Local Development)
+
+Use these values in your Keycloak client (`client-imi`) configuration:
+
+- **Root URL:** `https://localhost:3000`
+- **Home URL:** `https://localhost:3000`
+- **Valid redirect URIs:**
+	- `https://localhost:3000/auth/callback`
+	- `https://localhost:3000/*`
+	- `http://localhost:3000/*` (optional for non-HTTPS frontend dev)
+- **Valid post logout redirect URIs:**
+	- `https://localhost:3000/*`
+	- `http://localhost:3000/*` (optional for non-HTTPS frontend dev)
+- **Web origins:**
+	- `https://localhost:3000`
+	- `http://localhost:3000`

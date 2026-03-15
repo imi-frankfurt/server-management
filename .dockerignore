@@ -2,3 +2,7 @@
 .venv
 .git
 __pycache__
+db-data/
+certs/
+*.pyc
+.env

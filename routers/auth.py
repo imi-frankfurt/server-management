@@ -58,6 +58,19 @@ def read_data(user: dict = Depends(get_current_user), _roles = Depends(require_r
         "data": {"username": user['preferred_username']}
     }
 
+@router.get("/auth/session")
+def get_session(
+    user: dict = Depends(get_current_user),
+    roles: List[str] = Depends(get_user_roles)
+):
+    return {
+        "status": "authenticated",
+        "user": {
+            "username": user.get("preferred_username"),
+            "email": user.get("email"),
+            "roles": roles
+        }
+    }
 
 @router.post("/auth/logout")
 def logout(response: Response):

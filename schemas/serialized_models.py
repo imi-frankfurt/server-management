@@ -17,3 +17,8 @@ class UserAssignmentSerialized(BaseModel):
 class BlacklistEntrySerialized(BaseModel):
     username: str
     server_id: int
+
+class BlacklistUnassignSerialized(BaseModel):
+    server_id: int
+    username: str
+

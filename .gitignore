@@ -222,3 +222,4 @@ db-data/
 certs/
 *.pem
 *.sql
+keycloak-data

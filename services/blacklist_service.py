@@ -10,7 +10,7 @@ def get_blacklist_db(session: Session):
         blacklist_list = []
         for item in blacklist_users:
             servers = session.query(models.Server).filter(models.Server.id == item.server_id).all()
-            server_list = [sv.id for sv in servers] if servers else []
+            server_list = [sv.name for sv in servers] if servers else []
             blacklist_list.append({
                 "id": item.id,
                 "username": item.username,
@@ -38,3 +38,36 @@ def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session):
         return {"id": new_blacklist_entry.id, "username": new_blacklist_entry.username, "server_id": new_blacklist_entry.server_id, "created_at": new_blacklist_entry.created_at, "updated_at": new_blacklist_entry.updated_at}
     except Exception as e:
         error_response(f"Failed to add user to blacklist: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def get_blacklist_by_id(session: Session, blacklist_id: int):
+    try:
+        blacklist_entry = session.query(models.IgnoredUser).filter(models.IgnoredUser.id == blacklist_id).first()
+        if not blacklist_entry:
+            error_response("Blacklist entry not found", status.HTTP_404_NOT_FOUND)
+        blacklist_list = []
+        servers = session.query(models.Server).filter(models.Server.id == blacklist_entry.server_id).all()
+        server_list = [sv.name for sv in servers] if servers else []
+        blacklist_list.append({
+            "id": blacklist_entry.id,
+            "username": blacklist_entry.username,
+            "servers": server_list,
+            "created_at": blacklist_entry.created_at,
+            "updated_at": blacklist_entry.updated_at
+        })
+        return blacklist_list
+    except Exception as e:
+        error_response(f"Failed to fetch blacklist entry: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def remove_from_blacklist_db(session: Session, username: str, server_id: int):
+    try:
+        blacklist_entry = session.query(models.IgnoredUser).filter(
+            models.IgnoredUser.username == username,
+            models.IgnoredUser.server_id == server_id
+        ).first()
+        if not blacklist_entry:
+            error_response("Blacklist entry not found", status.HTTP_404_NOT_FOUND)
+        session.delete(blacklist_entry)
+        session.commit()
+        return success_response("User removed from blacklist successfully")
+    except Exception as e:
+        error_response(f"Failed to remove user from blacklist: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
