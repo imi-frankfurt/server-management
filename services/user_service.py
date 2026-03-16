@@ -155,8 +155,8 @@ def sync_users(session: Session):
             
             # Extract all pubKeys from Keycloak attributes (can be multiple)
             kc_pubkeys = []
-            if "attributes" in kc_user and "pubKey" in kc_user["attributes"]:
-                pubkey_data = kc_user["attributes"]["pubKey"]
+            if "attributes" in kc_user and "pubkey" in kc_user["attributes"]:
+                pubkey_data = kc_user["attributes"]["pubkey"]
                 if isinstance(pubkey_data, list):
                     kc_pubkeys = [pk for pk in pubkey_data if pk]  # Filter out empty strings
                 elif isinstance(pubkey_data, str) and pubkey_data:

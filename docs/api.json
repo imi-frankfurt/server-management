@@ -951,6 +951,111 @@
         ]
       }
     },
+    "/api/export": {
+      "get": {
+        "description": "Exports all servers and their assigned users in Ansible inventory format.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "hosts": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "hostname": {
+                            "example": "192.168.1.1",
+                            "format": "ipv4",
+                            "type": "string"
+                          },
+                          "alias": {
+                            "example": "Server-Alias",
+                            "type": "string"
+                          },
+                          "ignored_users": {
+                            "example": [
+                              "imi-sshdeploy"
+                            ],
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "authorized_users": {
+                            "example": [
+                              "imi-user-01",
+                              "imi-user-02"
+                            ],
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "hostname",
+                          "alias",
+                          "ignored_users",
+                          "authorized_users"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "users": {
+                      "items": {
+                        "properties": {
+                          "user_id": {
+                            "example": "user-imi",
+                            "type": "string"
+                          },
+                          "public_keys": {
+                            "example": [
+                              "ssh-ed25519 XXXXX"
+                            ],
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "user_id",
+                          "public_keys"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "hosts",
+                    "users"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Ansible inventory data fetched successfully"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          },
+          "403": {
+            "description": "Forbidden - requires read-only-role"
+          }
+        },
+        "security": [
+          {
+            "OIDC": []
+          }
+        ],
+        "summary": "Export Ansible Inventory Data",
+        "tags": [
+          "Ansible"
+        ]
+      }
+    },
     "/api/blacklist": {
       "get": {
         "description": "Returns a list of blacklisted users that are blocked from accessing specific servers.",
