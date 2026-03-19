@@ -951,7 +951,7 @@
         ]
       }
     },
-    "/api/export": {
+    "/api/ansible": {
       "get": {
         "description": "Exports all servers and their assigned users in Ansible inventory format.",
         "responses": {

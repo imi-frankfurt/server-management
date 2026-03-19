@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+import re
 
 def check_duplicate(session, model, **kwargs):
     return session.query(model).filter_by(**kwargs).first() is not None
@@ -30,3 +31,7 @@ def format_validation_errors(errors):
             "message": error["msg"]
         })
     return formatted_errors
+
+def validate_ip_address(ip_address: str) -> bool:
+    ipv4_pattern = "^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+    return bool(re.match(ipv4_pattern, ip_address))

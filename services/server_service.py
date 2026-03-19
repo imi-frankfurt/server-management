@@ -1,5 +1,5 @@
 from fastapi import APIRouter, FastAPI, Request, Depends, HTTPException, Response, status
-from core.shared_utilities import check_duplicate, success_response, error_response
+from core.shared_utilities import check_duplicate, success_response, error_response, validate_ip_address
 from db import models
 from db.database import getSession
 from sqlalchemy.orm import Session
@@ -10,12 +10,16 @@ from services.activity_log_service import create_activity_log
 
 
 def create_server(server: ServerSerialized, response: Response, session: Session = Depends(getSession)):
+    
+    if not validate_ip_address(server.ip):
+        error_response("Invalid IP address format", status.HTTP_400_BAD_REQUEST)
     if check_duplicate(session, models.Server, name=server.name):
         error_response("Server with this name already exists", status.HTTP_409_CONFLICT)
 
     if check_duplicate(session, models.Server, ip=server.ip):
         error_response("Server with this IP already exists", status.HTTP_409_CONFLICT)
     
+
     # Add to Server Table
     new_server = models.Server(ip=server.ip, name=server.name)
 
@@ -78,6 +82,8 @@ def get_server_by_id(server_id: int, session: Session):
 
 def update_server_by_id(server_id: int, server: ServerSerialized, session: Session):
     try:
+        if not validate_ip_address(server.ip):
+            error_response("Invalid IP address format", status.HTTP_400_BAD_REQUEST)
         existing_server = session.query(models.Server).filter(models.Server.id == server_id).first()
         if not existing_server:
             error_response(message="Server not found", status_code=status.HTTP_404_NOT_FOUND)
