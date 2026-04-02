@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Response
 from fastapi.responses import RedirectResponse
 from core.dependencies import get_current_user, get_user_roles, require_role, get_token_data
 from dotenv import load_dotenv
 from typing import List, Dict
 from pydantic import BaseModel
 import os
-from services.authentication_service import create_auth_url, callback_token
+from services.authentication_service import create_auth_url, callback_token, refresh_token
 load_dotenv()
 
 class LoginRequest(BaseModel):
@@ -37,10 +37,15 @@ async def login_redirect():
     auth_url = create_auth_url()
     return RedirectResponse(auth_url)
 
+@router.post("/auth/refresh")
+def refresh_token_route(request: Request, response: Response):
+    result = refresh_token(request, response)
+    return result
 
 @router.post("/auth/exchange-code")
 def exchange_code(request: CodeExchangeRequest, response: Response):
-    return callback_token(request.code, response, redirect_uri=request.redirect_uri)
+    result = callback_token(request.code, response, redirect_uri=request.redirect_uri)
+    return result
 
 @router.get("/protected")
 def protected(user: dict = Depends(get_current_user), roles: List[str] = Depends(get_user_roles)):

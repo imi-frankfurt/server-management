@@ -3,8 +3,10 @@ import os
 import json
 import time
 import logging
-from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+import token
 import jwt
+import requests
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends, Request, status, HTTPException
 from dotenv import load_dotenv
 from keycloak import KeycloakOpenID
@@ -193,28 +195,27 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
         )
         
         # Set access token cookie
-        response.set_cookie(
-            key="access_token",
-            value=token['access_token'],
-            httponly=True,
-            secure=cookie_secure,
-            samesite=cookie_samesite,
-            path="/",
-            max_age=token.get('expires_in', 3600)
-        )
-
-        # Set refresh token cookie if present
-        if token.get('refresh_token'):
+        if (token.get('access_token')):
             response.set_cookie(
-                key="refresh_token",
-                value=token['refresh_token'],
+                key="access_token",
+                value=token['access_token'],
                 httponly=True,
                 secure=cookie_secure,
                 samesite=cookie_samesite,
                 path="/",
-                max_age=2592000  # 30 days
+                max_age=token.get('expires_in', 3600)
             )
-        
+        if (token.get('refresh_token')):
+            response.set_cookie(
+                    key="refresh_token",
+                    value=token['refresh_token'],
+                    httponly=True,
+                    secure=cookie_secure,
+                    samesite=cookie_samesite,
+                    path="/",
+                    max_age=2592000  # 30 days
+                )
+                
         return {
             "status": "success",
             "message": "Authentication successful",
@@ -226,6 +227,49 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
             detail=f"Login failed: {str(e)}"
         )
 
+def refresh_token(request: Request, response: Response) -> Dict:
+    try:
+        cookie_secure = _cookie_secure_enabled()
+        cookie_samesite = _cookie_samesite_value()
+        refresh_token = request.cookies.get("refresh_token");
+        print("refresh token called, refresh token from cookie:", refresh_token)
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No refresh token found"
+            )
+        payload ={
+            'grant_type': os.getenv("KEYCLOAK_REFRESH_SCOPE", "refresh_token"),
+            'refresh_token': refresh_token,
+            'client_id': os.getenv("KEYCLOAK_CLIENT_ID"),
+            'client_secret': os.getenv("KEYCLOAK_CLIENT_SECRET")
+        }
+        url = f"{os.getenv('KEYCLOAK_URL')}realms/{os.getenv('KEYCLOAK_REALM')}/protocol/openid-connect/token"
+        r = requests.post(url, data=payload)
+
+        if r.status_code != 200:
+            raise HTTPException(status_code=401, detail=f"Keycloak refresh failed: {r.text}")
+        
+        token_data = r.json()    
+
+        response.set_cookie(
+            key="access_token",
+            value=token_data['access_token'],
+            httponly=True,
+            secure=cookie_secure,
+            samesite=cookie_samesite,
+            path="/"
+        )
+        return {
+            "status": "success",
+            "message": "Token refreshed",
+            "expires_in": token_data.get("expires_in")
+        }    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token refresh failed: {str(e)}"
+        )
 
 def verify_token(request: Request) -> Dict:
     try:

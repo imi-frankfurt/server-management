@@ -35,3 +35,14 @@ def format_validation_errors(errors):
 def validate_ip_address(ip_address: str) -> bool:
     ipv4_pattern = "^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
     return bool(re.match(ipv4_pattern, ip_address))
+
+def validate_keycloak(keycloak_id: str) -> bool:
+    # Keycloak GUID
+    keycloak_pattern = "^(?:\\{{0,1}(?:[0-9a-fA-F]){8}-(?:[0-9a-fA-F]){4}-(?:[0-9a-fA-F]){4}-(?:[0-9a-fA-F]){4}-(?:[0-9a-fA-F]){12}\\}{0,1})$"
+    return bool(re.match(keycloak_pattern, keycloak_id))
+
+def check_local_id(id: str) -> bool:
+    local_id_pattern = r"^\d+$"
+    if bool(re.match(local_id_pattern, id)):
+        return True  # It's a local DB ID
+    return False

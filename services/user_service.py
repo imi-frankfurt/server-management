@@ -4,7 +4,7 @@ from keycloak import KeycloakOpenIDConnection
 from keycloak import KeycloakAdmin
 import os
 from dotenv import load_dotenv
-from core.shared_utilities import check_duplicate, error_response, success_response
+from core.shared_utilities import check_duplicate, error_response, success_response, validate_keycloak, check_local_id
 from db import models
 from sqlalchemy.orm import Session
 from schemas.serialized_models import UserAssignmentSerialized
@@ -94,7 +94,60 @@ def get_users_local_db(session: Session):
     except Exception as e:
         error_response(f"Failed to fetch local users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+def update_user_by_id(session: Session, assignment: UserAssignmentSerialized, user_id: str):
+    try:
+        # Validate whether the provided user_id is a valid Keycloak GUID format or User ID in local DB
+        if check_local_id(user_id):
+            target_user = session.query(models.User).filter(models.User.id == int(user_id)).first()
+        elif validate_keycloak(user_id):
+            target_user = session.query(models.User).filter(models.User.keycloak_id == user_id).first()
+        else:
+            error_response("Invalid user ID format", status.HTTP_400_BAD_REQUEST)
+        if not target_user:
+            error_response("User not found", status.HTTP_404_NOT_FOUND)
+        # Validate Server
+        existing_server = session.query(models.Server).filter(models.Server.id == assignment.server_id).first()
+        if not existing_server:
+            error_response(message="Server not found", status_code=status.HTTP_404_NOT_FOUND)
+        # Different Approach: Instead of checking for other primaries
+        # If the user is being set as primary, we will update all other assignments for this server to primary_user=False
+        if assignment.primary_user:
+            session.query(models.user_server).filter(
+                models.user_server.c.server_id == assignment.server_id
+            ).update({models.user_server.c.primary_user: False})
+        # Check if association already exists
+        association = session.query(models.user_server).filter(
+            models.user_server.c.user_id == target_user.id,
+            models.user_server.c.server_id == assignment.server_id
+        ).first()
+        if association:
+            # Update existing association
+            update_stmt = models.user_server.update().where(
+                models.user_server.c.user_id == target_user.id,
+                models.user_server.c.server_id == assignment.server_id
+            ).values(primary_user=assignment.primary_user, updated_at=datetime.now())
+            session.execute(update_stmt)
+        else:
+            # Create new association
+            create_stmt = models.user_server.insert().values(
+                user_id=target_user.id,
+                server_id=assignment.server_id,
+                primary_user=assignment.primary_user,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            session.execute(create_stmt)
+        create_activity_log(
+            session,
+            action="put",
+            resource="user_assignment",
+            details=f"user_id={target_user.id};server_id={assignment.server_id};primary_user={assignment.primary_user}",
+        )
+        session.commit()
+        return {"message": "User assignment updated successfully"}
+    except Exception as e:
+        error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 def get_user_by_id(session: Session, user_id: str):
     try:
         user = session.query(models.User).filter(models.User.keycloak_id == user_id).first()
