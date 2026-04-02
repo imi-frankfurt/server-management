@@ -232,7 +232,6 @@ def refresh_token(request: Request, response: Response) -> Dict:
         cookie_secure = _cookie_secure_enabled()
         cookie_samesite = _cookie_samesite_value()
         refresh_token = request.cookies.get("refresh_token");
-        print("refresh token called, refresh token from cookie:", refresh_token)
         if not refresh_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

@@ -237,7 +237,7 @@ def sync_users(session: Session):
                 db_user = session.query(models.User).filter(models.User.username == kc_username).first()
                 if db_user and db_user.keycloak_id != kc_id:
                     db_user.keycloak_id = kc_id
-                    print(f"Updated keycloak_id for existing user: {kc_username}")
+                    # print(f"Updated keycloak_id for existing user: {kc_username}")
             
             if not db_user:
                 # User doesn't exist - add new user
@@ -252,7 +252,7 @@ def sync_users(session: Session):
                     session.add(new_pubkey)
                 
                 added_users.append({"username": kc_username, "keycloak_id": kc_id, "pubkeys_count": len(kc_pubkeys)})
-                print(f"Added new user: {kc_username} with {len(kc_pubkeys)} public key(s)")
+                # print(f"Added new user: {kc_username} with {len(kc_pubkeys)} public key(s)")
             else:
                 processed_user_ids.add(db_user.id)
                 # User exists - sync public keys
@@ -276,14 +276,14 @@ def sync_users(session: Session):
                     new_pubkey = models.PublicKey(key_content=key_content, user_id=db_user.id)
                     session.add(new_pubkey)
                     changes.append(f"added key")
-                    print(f"Added public key for user: {kc_username}")
+                    # print(f"Added public key for user: {kc_username}")
                 
                 # Remove old keys
                 for pubkey in existing_pubkeys:
                     if pubkey.key_content in keys_to_remove:
                         session.delete(pubkey)
                         changes.append(f"removed key")
-                        print(f"Removed public key for user: {kc_username}")
+                        # print(f"Removed public key for user: {kc_username}")
                 
                 if changes:
                     db_user.updated_at = datetime.now()
@@ -330,7 +330,7 @@ def sync_users(session: Session):
 def assign_user_to_server(server_user: UserAssignmentSerialized, session: Session):
     try:
         target_user = resolve_user_identifier(session, server_user.user_id)
-        print(f"Assigning user '{target_user.username}' to server ID {server_user.server_id} with primary_user={server_user.primary_user}")
+        # print(f"Assigning user '{target_user.username}' to server ID {server_user.server_id} with primary_user={server_user.primary_user}")
         server = session.query(models.Server).filter(models.Server.id == server_user.server_id).first()
 
         if not server:
