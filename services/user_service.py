@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from core.shared_utilities import check_duplicate, error_response, success_response, validate_keycloak, check_local_id
 from db import models
 from sqlalchemy.orm import Session
-from schemas.serialized_models import UserAssignmentSerialized
+from schemas.serialized_models import UserAssignmentSerialized, UserUpdateSerialized
 from services.activity_log_service import create_activity_log
 
 load_dotenv()
@@ -45,6 +45,8 @@ def fetch_users_keycloak():
             user_list.append(user_data)
         
         return user_list
+    except HTTPException:
+        raise
     except Exception as e:
         error_response(f"Failed to fetch users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -91,10 +93,12 @@ def get_users_local_db(session: Session):
             })
         
         return user_list
+    except HTTPException:
+        raise
     except Exception as e:
         error_response(f"Failed to fetch local users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def update_user_by_id(session: Session, assignment: UserAssignmentSerialized, user_id: str):
+def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_id: str):
     try:
         # Validate whether the provided user_id is a valid Keycloak GUID format or User ID in local DB
         if check_local_id(user_id):
@@ -102,7 +106,7 @@ def update_user_by_id(session: Session, assignment: UserAssignmentSerialized, us
         elif validate_keycloak(user_id):
             target_user = session.query(models.User).filter(models.User.keycloak_id == user_id).first()
         else:
-            error_response("Invalid user ID format", status.HTTP_400_BAD_REQUEST)
+            error_response("Invalid user ID or Keycloak ID format", status.HTTP_400_BAD_REQUEST)
         if not target_user:
             error_response("User not found", status.HTTP_404_NOT_FOUND)
         # Validate Server
@@ -145,6 +149,8 @@ def update_user_by_id(session: Session, assignment: UserAssignmentSerialized, us
         )
         session.commit()
         return {"message": "User assignment updated successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         error_response(message=str(e), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
@@ -188,6 +194,8 @@ def get_user_by_id(session: Session, user_id: str):
             "created_at": user.created_at,
             "updated_at": user.updated_at
         }
+    except HTTPException:
+        raise
     except Exception as e:
         error_response(f"Failed to fetch user: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -307,6 +315,8 @@ def sync_users(session: Session):
                 "deleted_users": deleted_users
             }
         return {"message": "All users are already synchronized"}
+    except HTTPException:
+        raise
     except Exception as e:
         session.rollback()
         error_response(f"Failed to synchronize users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -346,6 +356,8 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
         )
         session.commit()
         return {"message": "User assigned to server successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         session.rollback()
         error_response(f"Failed to assign user to server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -387,6 +399,8 @@ def unassign_user_from_server(user_id: int, server_id: int, session: Session):
         )
         session.commit()
         return {"message": "User removed from server successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         session.rollback()
         error_response(f"Failed to remove user from server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
