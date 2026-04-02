@@ -10,9 +10,13 @@ class UserSerialized(BaseModel):
     username: str
 
 class UserAssignmentSerialized(BaseModel):
-    user_id: int
+    user_id: str | int
     server_id: int
     primary_user: bool = False
+
+class UserUnassignmentSerialized(BaseModel):
+    user_id: str | int
+    server_id: int
 
 class UserUpdateSerialized(BaseModel):
     server_id: int

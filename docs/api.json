@@ -529,13 +529,13 @@
         ]
       }
     },
-    "/api/user/{keycloak_id}": {
+    "/api/user/{user_id}": {
       "get": {
-        "description": "Returns user details including public keys and all servers assigned to the user",
+        "description": "Returns user details including public keys and all servers assigned to the user. Accepts either local numeric user ID or Keycloak UUID.",
         "parameters": [
           {
             "in": "path",
-            "name": "keycloak_id",
+            "name": "user_id",
             "required": true,
             "schema": {
               "example": "123e4567-e89b-12d3-a456-426614174000",
@@ -648,11 +648,90 @@
         "tags": [
           "User"
         ]
+      },
+      "put": {
+        "description": "Updates user-server assignment for the selected user. Accepts either local numeric user ID or Keycloak UUID in path.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "example": "295c4efa-8eb1-45ba-ad68-37d8e97412bf",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "server_id": {
+                    "example": 1,
+                    "type": "integer"
+                  },
+                  "primary_user": {
+                    "example": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "server_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "example": "User assignment updated successfully",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "User assignment updated successfully"
+          },
+          "400": {
+            "description": "Invalid user identifier format or request payload"
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing authentication token"
+          },
+          "403": {
+            "description": "Forbidden - requires admin role"
+          },
+          "404": {
+            "description": "User or server not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "OIDC": []
+          }
+        ],
+        "summary": "Update user assignment",
+        "tags": [
+          "User"
+        ]
       }
     },
     "/api/user/assign": {
       "post": {
-        "description": "Assigns a user to a server. Requires admin role.",
+        "description": "Assigns a user to a server. Accepts either local numeric user ID or Keycloak UUID. Requires admin role.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -667,8 +746,8 @@
                     "type": "integer"
                   },
                   "user_id": {
-                    "example": 1,
-                    "type": "integer"
+                    "example": "295c4efa-8eb1-45ba-ad68-37d8e97412bf",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -724,7 +803,7 @@
     },
     "/api/user/unassign": {
       "post": {
-        "description": "Removes a user's access to a server by deleting the association. Requires admin role.",
+        "description": "Removes a user's access to a server by deleting the association. Accepts either local numeric user ID or Keycloak UUID. Requires admin role.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -735,8 +814,8 @@
                     "type": "integer"
                   },
                   "user_id": {
-                    "example": 1,
-                    "type": "integer"
+                    "example": "295c4efa-8eb1-45ba-ad68-37d8e97412bf",
+                    "type": "string"
                   }
                 },
                 "required": [

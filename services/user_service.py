@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from core.shared_utilities import check_duplicate, error_response, success_response, validate_keycloak, check_local_id
 from db import models
 from sqlalchemy.orm import Session
-from schemas.serialized_models import UserAssignmentSerialized, UserUpdateSerialized
+from schemas.serialized_models import UserAssignmentSerialized, UserUpdateSerialized, UserUnassignmentSerialized
 from services.activity_log_service import create_activity_log
 
 load_dotenv()
@@ -98,17 +98,25 @@ def get_users_local_db(session: Session):
     except Exception as e:
         error_response(f"Failed to fetch local users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+def resolve_user_identifier(session: Session, user_identifier: str | int):
+    normalized_user_id = str(user_identifier).strip()
+    if check_local_id(normalized_user_id):
+        target_user = session.query(models.User).filter(models.User.id == int(normalized_user_id)).first()
+    elif validate_keycloak(normalized_user_id):
+        target_user = session.query(models.User).filter(models.User.keycloak_id == normalized_user_id).first()
+    else:
+        error_response("Invalid user ID or Keycloak ID format", status.HTTP_400_BAD_REQUEST)
+
+    if not target_user:
+        error_response("User not found", status.HTTP_404_NOT_FOUND)
+
+    return target_user
+
 def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_id: str):
     try:
         # Validate whether the provided user_id is a valid Keycloak GUID format or User ID in local DB
-        if check_local_id(user_id):
-            target_user = session.query(models.User).filter(models.User.id == int(user_id)).first()
-        elif validate_keycloak(user_id):
-            target_user = session.query(models.User).filter(models.User.keycloak_id == user_id).first()
-        else:
-            error_response("Invalid user ID or Keycloak ID format", status.HTTP_400_BAD_REQUEST)
-        if not target_user:
-            error_response("User not found", status.HTTP_404_NOT_FOUND)
+        target_user = resolve_user_identifier(session, user_id)
         # Validate Server
         existing_server = session.query(models.Server).filter(models.Server.id == assignment.server_id).first()
         if not existing_server:
@@ -156,23 +164,21 @@ def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_i
         
 def get_user_by_id(session: Session, user_id: str):
     try:
-        user = session.query(models.User).filter(models.User.keycloak_id == user_id).first()
-        if not user:
-            error_response("User not found", status.HTTP_404_NOT_FOUND)
+        target_user = resolve_user_identifier(session, user_id)
         
         # Get all public keys for this user
-        pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == user.id).all()
+        pubkeys = session.query(models.PublicKey).filter(models.PublicKey.user_id == target_user.id).all()
         pubkey_list = [pk.key_content for pk in pubkeys]
         
         # Get all servers assigned to this user including relation metadata.
         assignments = session.query(models.user_server).filter(
-            models.user_server.c.user_id == user.id
+            models.user_server.c.user_id == target_user.id
         ).all()
         assignment_by_server_id = {assignment.server_id: assignment for assignment in assignments}
 
         # Get all servers assigned to this user
         assigned_servers = []
-        for server in user.servers:  # Using the relationship defined in models
+        for server in target_user.servers:  # Using the relationship defined in models
             assignment = assignment_by_server_id.get(server.id)
             assigned_servers.append({
                 "id": server.id,
@@ -186,13 +192,13 @@ def get_user_by_id(session: Session, user_id: str):
             })
         
         return {
-            "id": user.id,
-            "keycloak_id": user.keycloak_id,
-            "username": user.username,
+            "id": target_user.id,
+            "keycloak_id": target_user.keycloak_id,
+            "username": target_user.username,
             "pubKey": pubkey_list,
             "assigned_servers": assigned_servers,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at
+            "created_at": target_user.created_at,
+            "updated_at": target_user.updated_at
         }
     except HTTPException:
         raise
@@ -323,18 +329,16 @@ def sync_users(session: Session):
 
 def assign_user_to_server(server_user: UserAssignmentSerialized, session: Session):
     try:
-        user = session.query(models.User).filter(models.User.id == server_user.user_id).first()
+        target_user = resolve_user_identifier(session, server_user.user_id)
+        print(f"Assigning user '{target_user.username}' to server ID {server_user.server_id} with primary_user={server_user.primary_user}")
         server = session.query(models.Server).filter(models.Server.id == server_user.server_id).first()
-        
-        if not user:
-            error_response("User not found", status.HTTP_404_NOT_FOUND)
-        
+
         if not server:
             error_response("Server not found", status.HTTP_404_NOT_FOUND)
         
         # Check if association already exists
         association = session.query(models.user_server).filter(
-            models.user_server.c.user_id == server_user.user_id,
+            models.user_server.c.user_id == target_user.id,
             models.user_server.c.server_id == server_user.server_id
         ).first()
         
@@ -343,7 +347,7 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
         
         # Create association
         create_association = models.user_server.insert().values(
-            user_id=server_user.user_id,
+            user_id=target_user.id,
             server_id=server_user.server_id,
             primary_user=server_user.primary_user,
         )
@@ -352,7 +356,7 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
             session,
             action="post",
             resource="user_assignment",
-            details=f"user_id={server_user.user_id};server_id={server_user.server_id}",
+            details=f"user_id={target_user.id};server_id={server_user.server_id}",
         )
         session.commit()
         return {"message": "User assigned to server successfully"}
@@ -362,24 +366,21 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
         session.rollback()
         error_response(f"Failed to assign user to server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def unassign_user_from_server(user_id: int, server_id: int, session: Session):
+def unassign_user_from_server(server_user: UserUnassignmentSerialized, session: Session):
     """
     Remove a user's access to a server by deleting the association.
     """
     try:
-        user = session.query(models.User).filter(models.User.id == user_id).first()
-        server = session.query(models.Server).filter(models.Server.id == server_id).first()
-        
-        if not user:
-            error_response("User not found", status.HTTP_404_NOT_FOUND)
-        
+        target_user = resolve_user_identifier(session, server_user.user_id)
+        server = session.query(models.Server).filter(models.Server.id == server_user.server_id).first()
+
         if not server:
             error_response("Server not found", status.HTTP_404_NOT_FOUND)
         
         # Check if association exists
         association = session.query(models.user_server).filter(
-            models.user_server.c.user_id == user_id,
-            models.user_server.c.server_id == server_id
+            models.user_server.c.user_id == target_user.id,
+            models.user_server.c.server_id == server_user.server_id
         ).first()
         
         if not association:
@@ -387,15 +388,15 @@ def unassign_user_from_server(user_id: int, server_id: int, session: Session):
         
         # Delete association
         delete_association = models.user_server.delete().where(
-            models.user_server.c.user_id == user_id,
-            models.user_server.c.server_id == server_id
+            models.user_server.c.user_id == target_user.id,
+            models.user_server.c.server_id == server_user.server_id
         )
         session.execute(delete_association)
         create_activity_log(
             session,
             action="post",
             resource="user_unassign",
-            details=f"user_id={user_id};server_id={server_id}",
+            details=f"user_id={target_user.id};server_id={server_user.server_id}",
         )
         session.commit()
         return {"message": "User removed from server successfully"}
