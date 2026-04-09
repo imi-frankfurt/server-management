@@ -34,7 +34,3 @@ def get_user(user_id: str, request: Request, session: Session = Depends(getSessi
 @router.put("/user/{user_id}", status_code=status.HTTP_200_OK)
 def update_user(user_id: str, user_data: UserUpdateSerialized, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role"))):
     return update_user_by_id(session, user_data, user_id)
-
-
-
-
