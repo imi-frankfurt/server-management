@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from core.dependencies import get_current_user, require_role
+from core.dependencies import get_current_user, require_role, require_csrf_token
 from db.database import getSession
 from services.blacklist_service import add_to_blacklist_db, get_blacklist_db, get_blacklist_by_id, remove_from_blacklist_db
 from schemas.serialized_models import BlacklistEntrySerialized, BlacklistUnassignSerialized
@@ -15,7 +15,7 @@ def get_blacklists(session: Session = Depends(getSession),user: dict = Depends(g
     return get_blacklist_db(session)
 
 @router.post("/blacklist", status_code=201)
-def add_to_blacklist(blacklist: BlacklistEntrySerialized, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role"))):
+def add_to_blacklist(blacklist: BlacklistEntrySerialized, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role")), _csrf = Depends(require_csrf_token)):
     return add_to_blacklist_db(blacklist, session)
 
 @router.delete("/blacklist/unassign", status_code=200)
@@ -23,7 +23,8 @@ def unassign_from_blacklist(
     payload: BlacklistUnassignSerialized,
     session: Session = Depends(getSession),
     user: dict = Depends(get_current_user),
-    _roles = Depends(require_role("admin-role"))
+    _roles = Depends(require_role("admin-role")),
+    _csrf = Depends(require_csrf_token)
 ):
     return remove_from_blacklist_db(payload, session)
 

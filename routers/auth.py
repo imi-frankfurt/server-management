@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Response
 from fastapi.responses import RedirectResponse
-from core.dependencies import get_current_user, get_user_roles, require_role, get_token_data
+from core.dependencies import get_current_user, get_user_roles, require_role, get_token_data, require_csrf_token
 from dotenv import load_dotenv
 from typing import List, Dict
 from pydantic import BaseModel
@@ -38,7 +38,7 @@ async def login_redirect():
     return RedirectResponse(auth_url)
 
 @router.post("/auth/refresh")
-def refresh_token_route(request: Request, response: Response):
+def refresh_token_route(request: Request, response: Response, _csrf = Depends(require_csrf_token)):
     result = refresh_token(request, response)
     return result
 
@@ -78,7 +78,8 @@ def get_session(
     }
 
 @router.post("/auth/logout")
-def logout(response: Response):
+def logout(response: Response, _csrf = Depends(require_csrf_token)):
     response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="refresh_token", path="/")
+    response.delete_cookie(key="csrf_token", path="/")
     return {"status": "success", "message": "Logged out successfully"}

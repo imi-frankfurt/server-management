@@ -3,11 +3,12 @@ import os
 import json
 import time
 import logging
+import secrets
 import token
 import jwt
 import requests
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Depends, Request, status, HTTPException
+from fastapi import Depends, Request, status, HTTPException, Response
 from dotenv import load_dotenv
 from keycloak import KeycloakOpenID
 from typing import Dict, Any, Optional
@@ -30,6 +31,21 @@ _JWKS_CACHE: Dict[str, Any] = {"keys": None, "expires_at": 0.0}
 _JWKS_CACHE_TTL_SECONDS = 300
 _ISSUER_CACHE: Dict[str, Any] = {"issuers": None, "expires_at": 0.0}
 _ISSUER_CACHE_TTL_SECONDS = 300
+
+
+def generate_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _set_csrf_cookie(response: Response, csrf_token: str) -> None:
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=_cookie_secure_enabled(),
+        samesite=_cookie_samesite_value(),
+        path="/",
+    )
 
 
 def _cookie_secure_enabled() -> bool:
@@ -186,6 +202,7 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
     try:
         cookie_secure = _cookie_secure_enabled()
         cookie_samesite = _cookie_samesite_value()
+        csrf_token = generate_csrf_token()
 
         uri = redirect_uri or os.getenv("KEYCLOAK_REDIRECT_URI")
         token = keycloak_openid.token(
@@ -215,11 +232,13 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
                     path="/",
                     max_age=2592000  # 30 days
                 )
+        _set_csrf_cookie(response, csrf_token)
                 
         return {
             "status": "success",
             "message": "Authentication successful",
-            "expires_in": token.get('expires_in')
+            "expires_in": token.get('expires_in'),
+            "csrf_token": csrf_token
         }
     except Exception as e:
         raise HTTPException(
@@ -231,6 +250,7 @@ def refresh_token(request: Request, response: Response) -> Dict:
     try:
         cookie_secure = _cookie_secure_enabled()
         cookie_samesite = _cookie_samesite_value()
+        csrf_token = generate_csrf_token()
         refresh_token = request.cookies.get("refresh_token");
         if not refresh_token:
             raise HTTPException(
@@ -259,10 +279,12 @@ def refresh_token(request: Request, response: Response) -> Dict:
             samesite=cookie_samesite,
             path="/"
         )
+        _set_csrf_cookie(response, csrf_token)
         return {
             "status": "success",
             "message": "Token refreshed",
-            "expires_in": token_data.get("expires_in")
+            "expires_in": token_data.get("expires_in"),
+            "csrf_token": csrf_token
         }    
     except Exception as e:
         raise HTTPException(
