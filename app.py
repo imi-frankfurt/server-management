@@ -55,6 +55,30 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+
+    csp_policy = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'; "
+        "object-src 'none'; "
+        "form-action 'self'; "
+        "img-src 'self' data: https://fastapi.tiangolo.com; "
+        "font-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "connect-src 'self' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css.map http://localhost:8080 https://localhost:8080 http://127.0.0.1:8080 https://127.0.0.1:8080;"
+    )
+
+    response.headers["Content-Security-Policy"] = csp_policy
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
 app.include_router(auth.router)
 app.include_router(server.router)
 app.include_router(user.router)
@@ -88,8 +112,7 @@ async def general_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "status": "error",
-            "message": f"Internal server error: {str(exc)}",
-            "type": type(exc).__name__
+            "message": "Internal server error"
         }
     )
 

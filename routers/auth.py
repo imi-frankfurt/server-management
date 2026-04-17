@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from typing import List, Dict
 from pydantic import BaseModel
 import os
-from services.authentication_service import create_auth_url, callback_token, refresh_token
+from services.authentication_service import create_auth_url, callback_token, refresh_token, generate_csrf_token, _set_csrf_cookie
 load_dotenv()
 
 class LoginRequest(BaseModel):
@@ -76,6 +76,12 @@ def get_session(
             "roles": roles
         }
     }
+
+@router.post("/auth/get-csrf-token") #ONLY FOR TESTING PURPOSES, REMOVE IN PRODUCTION
+def csrf_token(response: Response, _roles = Depends(require_role("admin-role"))):
+    csrf_token = generate_csrf_token()
+    _set_csrf_cookie(response, csrf_token)
+    return {"csrf_token": csrf_token}
 
 @router.post("/auth/logout")
 def logout(response: Response, _csrf = Depends(require_csrf_token)):

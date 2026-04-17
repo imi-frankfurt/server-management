@@ -873,7 +873,7 @@
       }
     },
     "/api/user/sync": {
-      "get": {
+      "post": {
         "description": "Fetches users from Keycloak and updates the local database. Returns synchronization summary or a no-op message.",
         "responses": {
           "200": {
