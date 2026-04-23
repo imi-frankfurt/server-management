@@ -1,0 +1,49 @@
+services:
+  db-init:
+    image: postgres:latest
+    container_name: postgres-db-init
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-password}
+    command:
+      - sh
+      - -ec
+      - |
+        psql -h database -U ${DB_USER:-postgres} -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '${KEYCLOAK_DB_NAME:-keycloak_db}'" | grep -q 1 || \
+        psql -h database -U ${DB_USER:-postgres} -d postgres -c "CREATE DATABASE ${KEYCLOAK_DB_NAME:-keycloak_db};"
+    networks:
+      default:
+        ipv4_address: 192.168.211.5
+
+  keycloak:
+    image: keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL_HOST: database
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: ${KEYCLOAK_DB_NAME:-keycloak_db}
+      KC_DB_USERNAME: ${DB_USER:-postgres}
+      KC_DB_PASSWORD: ${DB_PASSWORD:-password}
+    command: start-dev
+    depends_on:
+      database:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      default:
+        ipv4_address: 192.168.211.6
+
+  python-app:
+    depends_on:
+      database:
+        condition: service_healthy
+      keycloak:
+        condition: service_started

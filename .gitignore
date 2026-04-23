@@ -157,6 +157,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Tar files
+*.tar.gz
+*.tar
+backend.tar
 # Spyder project settings
 .spyderproject
 .spyproject

@@ -1,0 +1,38 @@
+services:
+  database:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-auth_db}
+    networks:
+      default:
+        ipv4_address: 192.168.211.3
+
+    volumes:
+      - ./db-data/:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  python-app:
+    image: ${APP_IMAGE:-authentication-python-app:latest}
+    container_name: fastapiapp
+    command: ["/wait-for-it.sh", "database:5432", "--timeout=60", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000"]
+    env_file:
+      - .env
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      default:
+        ipv4_address: 192.168.211.2
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 192.168.211.0/24
