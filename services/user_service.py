@@ -154,7 +154,7 @@ def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_i
             action="put",
             resource="user_assignment",
             actor=actor,
-            details=f"user_id={target_user.id};server_id={assignment.server_id};primary_user={assignment.primary_user}",
+            details=f"user_id={target_user.id};server_id={assignment.server_id};server_name={assignment.name};server_ip={assignment.ip};primary_user={assignment.primary_user}",
         )
         session.commit()
         return {"message": "User assignment updated successfully"}
@@ -359,7 +359,7 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
             action="post",
             resource="user_assignment",
             actor=actor,
-            details=f"user_id={target_user.id};server_id={server_user.server_id}",
+            details=f"user_id={target_user.id};server_id={server_user.server_id};server_name={server.name};server_ip={server.ip};primary_user={server_user.primary_user}",
         )
         session.commit()
         return {"message": "User assigned to server successfully"}
@@ -400,7 +400,7 @@ def unassign_user_from_server(server_user: UserUnassignmentSerialized, session: 
             action="post",
             resource="user_unassign",
             actor=actor,
-            details=f"user_id={target_user.id};server_id={server_user.server_id}",
+            details=f"user_id={target_user.id};server_id={server_user.server_id};server_name={server.name};server_ip={server.ip};primary_user={server_user.primary_user}",
         )
         session.commit()
         return {"message": "User removed from server successfully"}

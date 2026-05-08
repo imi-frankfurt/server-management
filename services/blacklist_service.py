@@ -40,7 +40,7 @@ def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session, 
             action="post",
             actor=actor,
             resource="blacklist",
-            details=f"server_id={blacklist.server_id};username={blacklist.username}",
+            details=f"server_id={blacklist.server_id};server_name={existing_server.name};server_ip={existing_server.ip};username={blacklist.username}",
         )
         session.commit()
         return {"id": new_blacklist_entry.id, "username": new_blacklist_entry.username, "server_id": new_blacklist_entry.server_id, "created_at": new_blacklist_entry.created_at, "updated_at": new_blacklist_entry.updated_at}
@@ -80,7 +80,7 @@ def remove_from_blacklist_db(blacklist: BlacklistUnassignSerialized, session: Se
             action="delete",
             actor=actor,
             resource="blacklist",
-            details=f"server_id={blacklist.server_id};username={blacklist.username}",
+            details=f"server_id={blacklist.server_id};server_name={blacklist.name};server_ip={blacklist.ip};username={blacklist.username}",
         )
         session.commit()
         return success_response("User removed from blacklist successfully")

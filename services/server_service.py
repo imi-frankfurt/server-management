@@ -38,7 +38,7 @@ def create_server(server: ServerSerialized, response: Response, session: Session
         for alias in alias_list:
             session.add(alias)
 
-    create_activity_log(session, action="post", actor=actor, resource="server", details=f"server_id={new_server.id}")
+    create_activity_log(session, action="post", actor=actor, resource="server", details=f"server_id={new_server.id};server_name={new_server.name};server_ip={new_server.ip}")
 
     session.commit()
     response.status_code = status.HTTP_201_CREATED
@@ -113,7 +113,7 @@ def update_server_by_id(server_id: int, server: ServerSerialized, session: Sessi
         for alias_obj in new_alias_objs:
             session.add(alias_obj)
 
-        create_activity_log(session, action="put", actor=actor, resource="server", details=f"server_id={existing_server.id}")
+        create_activity_log(session, action="put", actor=actor, resource="server", details=f"server_id={existing_server.id};server_name={existing_server.name};server_ip={existing_server.ip}")
         
         session.commit()
         session.refresh(existing_server)
@@ -132,7 +132,7 @@ def delete_server_by_id(server_id: int, session: Session, actor: str | None = No
             error_response(message="Server not found", status_code=status.HTTP_404_NOT_FOUND)
         
         session.delete(existing_server)
-        create_activity_log(session, action="delete", actor=actor, resource="server", details=f"server_id={server_id}")
+        create_activity_log(session, action="delete", actor=actor, resource="server", details=f"server_id={server_id};server_name={existing_server.name};server_ip={existing_server.ip}")
         session.commit()
         
         return None  # 204 No Content

@@ -15,7 +15,7 @@ services:
         psql -h database -U ${DB_USER:-postgres} -d postgres -c "CREATE DATABASE ${KEYCLOAK_DB_NAME:-keycloak_db};"
     networks:
       default:
-        ipv4_address: ${DB_IP:-192.168.212.3}
+        ipv4_address: ${DB_INIT_IP:-192.168.212.4}
 
   keycloak:
     image: keycloak/keycloak:latest
@@ -47,3 +47,8 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+
+networks:
+  default:
+    external: true
+    name: imi-network
