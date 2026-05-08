@@ -1,63 +1,22 @@
 # IMI Server Manager
 
-The IMI Server Manager is a specialized tool designed to manage metadata and configuration details for servers. It serves as a modern replacement for the legacy system, which relied on unstructured Keycloak attributes.
+Internal tool for UKG Institut für Medizininformatik Frankfurt admins.
+It centralizes server metadata, user-to-server assignments, and exceptions in one place.
+The UI and automation use the same data to keep routing and access decisions consistent.
 
-The primary goal is to store server information in a relational database (PostgreSQL) to ensure data atomicity, consistency, and efficient retrieval via both a graphical user interface (GUI) and a RESTful API.
+## Features in use
 
-## Table of Contents
+- **Server registry:** Store server name and IP.
+- **Aliases:** Multiple aliases per server.
+- **Ignored users (blacklist):** Users that should not land on a specific server.
+- **User assignments:** Assign users to servers, including a primary server.
+- **User sync:** Sync users and public keys from Keycloak.
+- **Activity log:** Track changes (create, update, delete, sync).
+- **Ansible export:** Export servers, aliases, ignored users, and authorized users.
 
-- [Target Audience](#target-audience)
-- [Functional Requirements](#functional-requirements)
-- [Technology Stack](#technology-stack)
-- [Keycloak Client Settings (Local Development)](#keycloak-client-settings-local-development)
+## Tech stack
 
-## Target Audience
-
-The system supports two distinct user groups:
-
-### A. System Administrators (GUI Users)
-
-- **Goal:** Manual infrastructure management
-- **Tasks:** Create servers, update IP addresses, and manage access rights via a web frontend
-- **Authentication:** Single Sign-On (SSO) via Keycloak
-
-### B. DevOps & Automation Services (API Users)
-
-- **Goal:** Automated configuration retrieval
-- **Tasks:** Query endpoints to determine user redirects (e.g., "Which server IP is for User X?")
-- **Authentication:** Secure token-based API access
-
-## Functional Requirements
-
-The application centers around the "Server" entity and supports the following features:
-
-- **Server Management:** Users can add/remove servers (identified by a unique ID)
-- **Alias Assignment:** Assign multiple aliases to a single server
-- **Access Control (Ignored Users):** Assign multiple ignored users to a server
-- **Redirect Logic:** If a user is marked as "ignored" on Server A, the system redirects them to their correct server
-- **Synchronization:** Automatically or manually fetch the users from the Keycloak via Keycloak Admin API
-
-## Technology Stack
-
-- **Language:** Python 3.14.2
-- **Framework:** FastAPI - High-performance framework for the web application and REST API
-- **Database:** PostgreSQL - Relational database for structured server metadata
-- **Container:** Docker - Consistent deployment of application and database
-- **Authentication:** Keycloak - Handles OIDC authentication and role management
-
-## Keycloak Client Settings (Local Development)
-
-Use these values in your Keycloak client (`client-imi`) configuration:
-
-- **Root URL:** `https://localhost:3000`
-- **Home URL:** `https://localhost:3000`
-- **Valid redirect URIs:**
-	- `https://localhost:3000/auth/callback`
-	- `https://localhost:3000/*`
-	- `http://localhost:3000/*` (optional for non-HTTPS frontend dev)
-- **Valid post logout redirect URIs:**
-	- `https://localhost:3000/*`
-	- `http://localhost:3000/*` (optional for non-HTTPS frontend dev)
-- **Web origins:**
-	- `https://localhost:3000`
-	- `http://localhost:3000`
+- **API:** FastAPI (Python)
+- **Database:** PostgreSQL
+- **Auth/SSO:** Keycloak
+- **Deployment:** Docker
