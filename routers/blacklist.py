@@ -16,7 +16,8 @@ def get_blacklists(session: Session = Depends(getSession),user: dict = Depends(g
 
 @router.post("/blacklist", status_code=201)
 def add_to_blacklist(blacklist: BlacklistEntrySerialized, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role")), _csrf = Depends(require_csrf_token)):
-    return add_to_blacklist_db(blacklist, session)
+    username = user.get('preferred_username', 'Unknown') if user else "Unknown"
+    return add_to_blacklist_db(blacklist, session, actor=username)
 
 @router.delete("/blacklist/unassign", status_code=200)
 def unassign_from_blacklist(
@@ -26,7 +27,8 @@ def unassign_from_blacklist(
     _roles = Depends(require_role("admin-role")),
     _csrf = Depends(require_csrf_token)
 ):
-    return remove_from_blacklist_db(payload, session)
+    username = user.get('preferred_username', 'Unknown') if user else "Unknown"
+    return remove_from_blacklist_db(payload, session, actor=username)
 
 @router.get("/blacklist/{blacklist_id:int}", status_code=200)
 def get_blacklist(blacklist_id: int, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):

@@ -65,6 +65,7 @@ class ActivityLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     action = Column(String, nullable=False, index=True)  # post | put | sync
+    actor = Column(String, nullable=True, index=True) # User performing the action
     resource = Column(String, nullable=False, index=True)
     details = Column(Text, nullable=True)
 

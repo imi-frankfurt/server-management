@@ -9,7 +9,7 @@ from datetime import datetime
 from services.activity_log_service import create_activity_log
 
 
-def create_server(server: ServerSerialized, response: Response, session: Session = Depends(getSession)):
+def create_server(server: ServerSerialized, response: Response, session: Session, actor: str | None = None):
     
     if not validate_ip_address(server.ip):
         error_response("Invalid IP address format", status.HTTP_400_BAD_REQUEST)
@@ -38,7 +38,7 @@ def create_server(server: ServerSerialized, response: Response, session: Session
         for alias in alias_list:
             session.add(alias)
 
-    create_activity_log(session, action="post", resource="server", details=f"server_id={new_server.id}")
+    create_activity_log(session, action="post", actor=actor, resource="server", details=f"server_id={new_server.id}")
 
     session.commit()
     response.status_code = status.HTTP_201_CREATED
@@ -80,7 +80,7 @@ def get_server_by_id(server_id: int, session: Session):
     except Exception as e:
         error_response(message=str(e))
 
-def update_server_by_id(server_id: int, server: ServerSerialized, session: Session):
+def update_server_by_id(server_id: int, server: ServerSerialized, session: Session, actor: str | None = None):
     try:
         if not validate_ip_address(server.ip):
             error_response("Invalid IP address format", status.HTTP_400_BAD_REQUEST)
@@ -113,7 +113,7 @@ def update_server_by_id(server_id: int, server: ServerSerialized, session: Sessi
         for alias_obj in new_alias_objs:
             session.add(alias_obj)
 
-        create_activity_log(session, action="put", resource="server", details=f"server_id={existing_server.id}")
+        create_activity_log(session, action="put", actor=actor, resource="server", details=f"server_id={existing_server.id}")
         
         session.commit()
         session.refresh(existing_server)
@@ -125,13 +125,14 @@ def update_server_by_id(server_id: int, server: ServerSerialized, session: Sessi
     except Exception as e:
         error_response(message=str(e))
 
-def delete_server_by_id(server_id: int, session: Session):
+def delete_server_by_id(server_id: int, session: Session, actor: str | None = None):
     try:
         existing_server = session.query(models.Server).filter(models.Server.id == server_id).first()
         if not existing_server:
             error_response(message="Server not found", status_code=status.HTTP_404_NOT_FOUND)
         
         session.delete(existing_server)
+        create_activity_log(session, action="delete", actor=actor, resource="server", details=f"server_id={server_id}")
         session.commit()
         
         return None  # 204 No Content

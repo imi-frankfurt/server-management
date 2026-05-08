@@ -15,12 +15,14 @@ def create_activity_log(
     session: Session,
     action: str,
     resource: str,
+    actor: str | None = None,
     details: str | None = None,
 ) -> None:
     """Queue a log row in the current transaction."""
     session.add(
         models.ActivityLog(
             action=action.lower(),
+            actor=actor,
             resource=resource,
             details=details,
         )
@@ -63,6 +65,7 @@ def get_logs(session: Session, action: str | None = None, resource: str | None =
             {
                 "id": log.id,
                 "action": log.action,
+                "actor": log.actor,
                 "resource": log.resource,
                 "details": log.details,
                 "created_at": log.created_at,

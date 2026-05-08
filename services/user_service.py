@@ -113,7 +113,7 @@ def resolve_user_identifier(session: Session, user_identifier: str | int):
 
     return target_user
 
-def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_id: str):
+def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_id: str, actor: str | None = None):
     try:
         # Validate whether the provided user_id is a valid Keycloak GUID format or User ID in local DB
         target_user = resolve_user_identifier(session, user_id)
@@ -153,6 +153,7 @@ def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_i
             session,
             action="put",
             resource="user_assignment",
+            actor=actor,
             details=f"user_id={target_user.id};server_id={assignment.server_id};primary_user={assignment.primary_user}",
         )
         session.commit()
@@ -205,7 +206,7 @@ def get_user_by_id(session: Session, user_id: str):
     except Exception as e:
         error_response(f"Failed to fetch user: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-def sync_users(session: Session):
+def sync_users(session: Session, actor: str | None = None):
     try:
         added_users = []
         updated_users = []
@@ -309,6 +310,7 @@ def sync_users(session: Session):
             session,
             action="sync",
             resource="user",
+            actor=actor,
             details=f"added={len(added_users)};updated={len(updated_users)};deleted={len(deleted_users)}",
         )
         
@@ -327,7 +329,7 @@ def sync_users(session: Session):
         session.rollback()
         error_response(f"Failed to synchronize users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def assign_user_to_server(server_user: UserAssignmentSerialized, session: Session):
+def assign_user_to_server(server_user: UserAssignmentSerialized, session: Session, actor: str | None = None):
     try:
         target_user = resolve_user_identifier(session, server_user.user_id)
         # print(f"Assigning user '{target_user.username}' to server ID {server_user.server_id} with primary_user={server_user.primary_user}")
@@ -356,6 +358,7 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
             session,
             action="post",
             resource="user_assignment",
+            actor=actor,
             details=f"user_id={target_user.id};server_id={server_user.server_id}",
         )
         session.commit()
@@ -366,7 +369,7 @@ def assign_user_to_server(server_user: UserAssignmentSerialized, session: Sessio
         session.rollback()
         error_response(f"Failed to assign user to server: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def unassign_user_from_server(server_user: UserUnassignmentSerialized, session: Session):
+def unassign_user_from_server(server_user: UserUnassignmentSerialized, session: Session, actor: str | None = None):
     """
     Remove a user's access to a server by deleting the association.
     """
@@ -396,6 +399,7 @@ def unassign_user_from_server(server_user: UserUnassignmentSerialized, session: 
             session,
             action="post",
             resource="user_unassign",
+            actor=actor,
             details=f"user_id={target_user.id};server_id={server_user.server_id}",
         )
         session.commit()

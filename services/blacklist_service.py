@@ -23,7 +23,7 @@ def get_blacklist_db(session: Session):
     except Exception as e:
         error_response(f"Failed to fetch blacklist: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session):
+def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session, actor: str | None = None):
     try:
         # Check if the server exists
         existing_server = session.query(models.Server).filter(models.Server.id == blacklist.server_id).first()
@@ -38,6 +38,7 @@ def add_to_blacklist_db(blacklist : BlacklistEntrySerialized, session: Session):
         create_activity_log(
             session,
             action="post",
+            actor=actor,
             resource="blacklist",
             details=f"server_id={blacklist.server_id};username={blacklist.username}",
         )
@@ -65,7 +66,7 @@ def get_blacklist_by_id(session: Session, blacklist_id: int):
     except Exception as e:
         error_response(f"Failed to fetch blacklist entry: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def remove_from_blacklist_db(blacklist: BlacklistUnassignSerialized, session: Session):
+def remove_from_blacklist_db(blacklist: BlacklistUnassignSerialized, session: Session, actor: str | None = None):
     try:
         blacklist_entry = session.query(models.IgnoredUser).filter(
             models.IgnoredUser.username == blacklist.username,
@@ -77,6 +78,7 @@ def remove_from_blacklist_db(blacklist: BlacklistUnassignSerialized, session: Se
         create_activity_log(
             session,
             action="delete",
+            actor=actor,
             resource="blacklist",
             details=f"server_id={blacklist.server_id};username={blacklist.username}",
         )
