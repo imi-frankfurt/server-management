@@ -15,7 +15,7 @@ services:
         psql -h database -U ${DB_USER:-postgres} -d postgres -c "CREATE DATABASE ${KEYCLOAK_DB_NAME:-keycloak_db};"
     networks:
       default:
-        ipv4_address: 192.168.211.5
+        ipv4_address: ${DB_IP:-192.168.212.3}
 
   keycloak:
     image: keycloak/keycloak:latest
@@ -25,7 +25,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_DB: postgres
       KC_DB_URL_HOST: database
-      KC_DB_URL_PORT: 5432
+      KC_DB_URL_PORT: ${DB_PORT:-5432}
       KC_DB_URL_DATABASE: ${KEYCLOAK_DB_NAME:-keycloak_db}
       KC_DB_USERNAME: ${DB_USER:-postgres}
       KC_DB_PASSWORD: ${DB_PASSWORD:-password}
@@ -39,7 +39,7 @@ services:
       - "127.0.0.1:8080:8080"
     networks:
       default:
-        ipv4_address: 192.168.211.6
+        ipv4_address: ${KEYCLOAK_IP:-192.168.212.6}
 
   python-app:
     depends_on:
