@@ -19,7 +19,7 @@ services:
       retries: 10
 
   python-app:
-    image: ${APP_IMAGE:-authentication-python-app:latest}
+    image: ghcr.io/imi-frankfurt/server-management:1.0.1
     container_name: fastapiapp
     command: ["/wait-for-it.sh", "database:5432", "--timeout=60", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000"]
     env_file:
