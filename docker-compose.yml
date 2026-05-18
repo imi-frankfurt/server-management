@@ -22,7 +22,7 @@ services:
     networks:
       - auth-network
   database:
-    image: postgres:latest
+    image: postgres:18
     container_name: postgres
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
