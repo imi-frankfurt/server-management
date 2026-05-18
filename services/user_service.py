@@ -154,7 +154,7 @@ def update_user_by_id(session: Session, assignment: UserUpdateSerialized, user_i
             action="put",
             resource="user_assignment",
             actor=actor,
-            details=f"user_id={target_user.id};server_id={assignment.server_id};server_name={assignment.name};server_ip={assignment.ip};primary_user={assignment.primary_user}",
+            details=f"user_id={target_user.id};server_id={assignment.server_id};server_name={existing_server.name};server_ip={existing_server.ip};primary_user={assignment.primary_user}",
         )
         session.commit()
         return {"message": "User assignment updated successfully"}

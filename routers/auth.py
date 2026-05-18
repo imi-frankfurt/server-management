@@ -38,7 +38,7 @@ async def login_redirect():
     return RedirectResponse(auth_url)
 
 @router.post("/auth/refresh")
-def refresh_token_route(request: Request, response: Response, _csrf = Depends(require_csrf_token)):
+def refresh_token_route(request: Request, response: Response):
     result = refresh_token(request, response)
     return result
 
