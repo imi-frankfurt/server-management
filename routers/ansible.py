@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from requests import Session
 from core.dependencies import get_current_user, require_role
 from db.database import getSession
-from routers import auth, user, server, blacklist, activity_log
 from services.ansible_service import ansible_export
 
 router = APIRouter(
