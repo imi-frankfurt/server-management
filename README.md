@@ -8,7 +8,7 @@ The UI and automation use the same data to keep routing and access decisions con
 
 - **Server registry:** Store server name and IP.
 - **Aliases:** Multiple aliases per server.
-- **Ignored users (blacklist):** Users that should not land on a specific server.
+- **Ignored users (Ignore List):** Users that should not land on a specific server.
 - **User assignments:** Assign users to servers, including a primary server.
 - **User sync:** Sync users and public keys from Keycloak.
 - **Activity log:** Track changes (create, update, delete, sync).

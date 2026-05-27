@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import json
-from routers import ansible, auth, server, user, blacklist, activity_log
+from routers import ansible, auth, ignorelist, server, user, activity_log
 from db.database import init_db
 from core.shared_utilities import format_validation_errors
 load_dotenv()
@@ -82,7 +82,7 @@ async def security_headers_middleware(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(server.router)
 app.include_router(user.router)
-app.include_router(blacklist.router)
+app.include_router(ignorelist.router)
 app.include_router(activity_log.router)
 app.include_router(ansible.router)
 

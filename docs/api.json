@@ -1135,9 +1135,9 @@
         ]
       }
     },
-    "/api/blacklist": {
+    "/api/ignorelist": {
       "get": {
-        "description": "Returns a list of blacklisted users that are blocked from accessing specific servers.",
+        "description": "Returns a list of ignored users that are blocked from accessing specific servers.",
         "responses": {
           "200": {
             "content": {
@@ -1178,7 +1178,7 @@
                 }
               }
             },
-            "description": "Blacklisted users fetched successfully"
+            "description": "Ignored users fetched successfully"
           },
           "401": {
             "description": "Unauthorized - invalid or missing authentication token"
@@ -1192,13 +1192,13 @@
             "OIDC": []
           }
         ],
-        "summary": "Get Blacklisted Users",
+        "summary": "Get Ignored Users",
         "tags": [
-          "Blacklist"
+          "Ignorelist"
         ]
       },
       "post": {
-        "description": "Adds a user to the blacklist for a specific server, preventing them from accessing it.",
+        "description": "Adds a user to the Ignore List for a specific server, preventing them from accessing it.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1251,7 +1251,7 @@
                 }
               }
             },
-            "description": "User added to blacklist successfully"
+            "description": "User added to ignorelist successfully"
           },
           "400": {
             "description": "Invalid input - check username and server_id"
@@ -1271,15 +1271,15 @@
             "OIDC": []
           }
         ],
-        "summary": "Add User to Blacklist",
+        "summary": "Add User to Ignore List",
         "tags": [
-          "Blacklist"
+          "Ignorelist"
         ]
       }
     },
-    "/api/blacklist/unassign": {
+    "/api/ignorelist/unassign": {
       "delete": {
-        "description": "Removes a user from blacklist for a specific server.",
+        "description": "Removes a user from Ignore List for a specific server.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1309,7 +1309,7 @@
                 "schema": {
                   "properties": {
                     "message": {
-                      "example": "User removed from blacklist successfully",
+                      "example": "User removed from Ignore List successfully",
                       "type": "string"
                     }
                   },
@@ -1317,7 +1317,7 @@
                 }
               }
             },
-            "description": "User removed from blacklist successfully"
+            "description": "User removed from Ignore List successfully"
           },
           "401": {
             "description": "Unauthorized - invalid or missing authentication token"
@@ -1326,7 +1326,7 @@
             "description": "Forbidden - requires admin role"
           },
           "404": {
-            "description": "Blacklist entry not found"
+            "description": "Ignore List entry not found"
           }
         },
         "security": [
@@ -1334,19 +1334,19 @@
             "OIDC": []
           }
         ],
-        "summary": "Unassign user from blacklist",
+        "summary": "Unassign user from Ignore List",
         "tags": [
-          "Blacklist"
+          "Ignorelist"
         ]
       }
     },
-    "/api/blacklist/{blacklist_id}": {
+    "/api/ignorelist/{ignorelist_id}": {
       "get": {
-        "description": "Returns a specific blacklist entry by id.",
+        "description": "Returns a specific Ignore List entry by id.",
         "parameters": [
           {
             "in": "path",
-            "name": "blacklist_id",
+            "name": "ignorelist_id",
             "required": true,
             "schema": {
               "type": "integer"
@@ -1387,7 +1387,7 @@
                 }
               }
             },
-            "description": "Blacklist entry fetched successfully"
+            "description": "Ignorelist entry fetched successfully"
           },
           "401": {
             "description": "Unauthorized - invalid or missing authentication token"
@@ -1396,7 +1396,7 @@
             "description": "Forbidden - requires read-only-role"
           },
           "404": {
-            "description": "Blacklist entry not found"
+            "description": "Ignorelist entry not found"
           }
         },
         "security": [
@@ -1404,9 +1404,9 @@
             "OIDC": []
           }
         ],
-        "summary": "Get blacklist entry by id",
+        "summary": "Get Ignore List entry by id",
         "tags": [
-          "Blacklist"
+          "Ignorelist"
         ]
       }
     },
