@@ -279,6 +279,17 @@ def refresh_token(request: Request, response: Response) -> Dict:
             samesite=cookie_samesite,
             path="/"
         )
+        if token_data.get('refresh_token'):
+            response.set_cookie(
+                key="refresh_token",
+                value=token_data['refresh_token'],
+                httponly=True,
+                secure=cookie_secure,
+                samesite=cookie_samesite,
+                path="/",
+                max_age=2592000  # 30 days
+            )
+            
         _set_csrf_cookie(response, csrf_token)
         return {
             "status": "success",
