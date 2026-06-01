@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from core.dependencies import get_current_user, get_user_roles, require_role, get_token_data, require_csrf_token
 from dotenv import load_dotenv
-from typing import List, Dict
+from typing import List
 from pydantic import BaseModel
-import os
-from services.authentication_service import create_auth_url, callback_token, refresh_token, generate_csrf_token, _set_csrf_cookie
+from services.authentication_service import create_auth_url, callback_token, refresh_token
 load_dotenv()
 
 class LoginRequest(BaseModel):
@@ -76,12 +75,6 @@ def get_session(
             "roles": roles
         }
     }
-
-@router.post("/auth/get-csrf-token") #ONLY FOR TESTING PURPOSES, REMOVE IN PRODUCTION
-def csrf_token(response: Response, _roles = Depends(require_role("admin-role"))):
-    csrf_token = generate_csrf_token()
-    _set_csrf_cookie(response, csrf_token)
-    return {"csrf_token": csrf_token}
 
 @router.post("/auth/logout")
 def logout(response: Response, _csrf = Depends(require_csrf_token)):
