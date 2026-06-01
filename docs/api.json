@@ -1137,7 +1137,7 @@
     },
     "/api/ignorelist": {
       "get": {
-        "description": "Returns a list of ignored users that are blocked from accessing specific servers.",
+        "description": "Returns a list of ignored users. Ignored users that are already on a server will not be touched by the configuration management, preventing accidental deactivation of accounts outside Keycloak.",
         "responses": {
           "200": {
             "content": {
@@ -1198,7 +1198,7 @@
         ]
       },
       "post": {
-        "description": "Adds a user to the Ignore List for a specific server, preventing them from accessing it.",
+        "description": "Adds a user to the Ignore List for a specific server. This means the configuration management will not modify or delete this user on the server, avoiding accidental deactivation of accounts outside Keycloak.",
         "requestBody": {
           "content": {
             "application/json": {
