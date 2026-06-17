@@ -72,14 +72,21 @@ def sync_disabled_users_local(session: Session):
     try:  
         should_disable = get_disabled_users_keycloak(session)
         for user in should_disable:
-            # TODO: if the user is already disabled in the local db and do not have any server assignments, we can skip to the next user
-
             local_user = session.query(models.User).filter(models.User.id == user["id"]).first()
+            
             if local_user:
+                if not local_user.enabled and not local_user.servers:
+                    continue
+
                 if local_user.servers:
                     for server in local_user.servers:
-                        unassign_user_from_server(UserUnassignmentSerialized(user_id=user["id"], server_id=server.id), session, actor="restricted-sync")
-                deactivate_user_in_local_db(session, user["id"])
+                        unassign_user_from_server(
+                            UserUnassignmentSerialized(user_id=user["id"], server_id=server.id), 
+                            session, 
+                            actor="restricted-sync"
+                        )
+                if local_user.enabled:
+                    deactivate_user_in_local_db(session, user["id"])
         return should_disable
     except Exception as e:
         error_response(f"Failed to fetch disabled users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
