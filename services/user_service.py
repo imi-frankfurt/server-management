@@ -4,6 +4,7 @@ from keycloak import KeycloakOpenIDConnection
 from keycloak import KeycloakAdmin
 import os
 from dotenv import load_dotenv
+from sentry_sdk import session
 from core.shared_utilities import check_duplicate, error_response, success_response, validate_keycloak, check_local_id
 from db import models
 from sqlalchemy.orm import Session
@@ -49,7 +50,50 @@ def fetch_users_keycloak():
         raise
     except Exception as e:
         error_response(f"Failed to fetch users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
+def get_disabled_users_keycloak(session: Session):
+    try:
+            disabled_users = keycloak_admin.get_users({"enabled": "false"})
+            all_users = get_users_local_db(session)
+            should_disable = []
+            for user in disabled_users:
+                matching_local_user = next((u for u in all_users if u["keycloak_id"] == user["id"]), None)
+                if matching_local_user:
+                    should_disable.append({
+                        "id": matching_local_user["id"],
+                        "keycloak_id": matching_local_user["keycloak_id"],
+                        "username": matching_local_user["username"]
+                    })
+            return should_disable
+    except HTTPException:
+        error_response(f"Failed to fetch disabled users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def sync_disabled_users_local(session: Session):
+    try:  
+        should_disable = get_disabled_users_keycloak(session)
+        for user in should_disable:
+            # TODO: if the user is already disabled in the local db and do not have any server assignments, we can skip to the next user
+
+            local_user = session.query(models.User).filter(models.User.id == user["id"]).first()
+            if local_user:
+                if local_user.servers:
+                    for server in local_user.servers:
+                        unassign_user_from_server(UserUnassignmentSerialized(user_id=user["id"], server_id=server.id), session, actor="restricted-sync")
+                deactivate_user_in_local_db(session, user["id"])
+        return should_disable
+    except Exception as e:
+        error_response(f"Failed to fetch disabled users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def deactivate_user_in_local_db(session: Session, user_id: str):
+    try:
+        user = session.query(models.User).filter(models.User.id == user_id).first()
+        if user:
+            user.enabled = False
+            session.commit()
+    except Exception as e:
+        error_response(f"Failed to deactivate user: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 def get_users_local_db(session: Session):
     try:
         users = session.query(models.User).all()
@@ -220,6 +264,43 @@ def sync_users(session: Session, actor: str | None = None):
         for kc_user in keycloak_users:
             kc_id = kc_user["id"]
             kc_username = kc_user["username"]
+
+            
+            kc_is_enabled = kc_user.get("enabled", True)
+            local_user = session.query(models.User).filter(models.User.keycloak_id == kc_id).first()            
+            if local_user:
+                processed_user_ids.add(local_user.id)
+                
+                # Szenario A: In Keycloak AKTIV, aber lokal noch DEAKTIVIERT -> Reaktivieren
+                if not local_user.enabled and kc_is_enabled:
+                    local_user.enabled = True
+                    session.commit()
+                    added_users.append({"username": kc_username, "keycloak_id": kc_id, "pubkeys_count": len(local_user.public_keys), "reactivated": True})
+                    continue 
+                
+                # Szenario B: In Keycloak DEAKTIVIERT, aber lokal noch AKTIV -> Deaktivieren
+                elif local_user.enabled and not kc_is_enabled:
+                    if local_user.servers:
+                        for server in local_user.servers:
+                            unassign_user_from_server(
+                                UserUnassignmentSerialized(user_id=local_user.id, server_id=server.id), 
+                                session, 
+                                actor="restricted-sync"
+                            )
+                    local_user.enabled = False
+                    session.commit()
+                    
+                    updated_users.append({
+                        "username": kc_username, 
+                        "action": "deactivated", 
+                        "removed_from_servers": len(local_user.servers) if local_user.servers else 0
+                    })
+                    continue
+                
+                # Szenario C: In Keycloak DEAKTIVIERT und lokal DEAKTIVIERT -> Nichts tun
+                elif not local_user.enabled and not kc_is_enabled:
+                    continue
+               
             
             # Extract all pubKeys from Keycloak attributes (can be multiple)
             kc_pubkeys = []

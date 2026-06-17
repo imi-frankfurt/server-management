@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import json
-from routers import ansible, auth, ignorelist, server, user, activity_log
+from routers import ansible, auth, ignorelist, server, user, activity_log, restricted
 from db.database import init_db
 from core.shared_utilities import format_validation_errors
 load_dotenv()
@@ -85,6 +85,7 @@ app.include_router(user.router)
 app.include_router(ignorelist.router)
 app.include_router(activity_log.router)
 app.include_router(ansible.router)
+app.include_router(restricted.router)
 
 
 @app.exception_handler(RequestValidationError)
