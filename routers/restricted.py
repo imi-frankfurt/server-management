@@ -3,7 +3,9 @@ from core.dependencies import get_current_user, require_role
 from services.user_service import sync_disabled_users_local
 from db.database import getSession
 from sqlalchemy.orm import Session
-    
+from core.limiter import limiter
+
+
 
 router = APIRouter(
         prefix="/api",
@@ -11,5 +13,6 @@ router = APIRouter(
 )
 
 @router.get("/restricted/sync", status_code=status.HTTP_200_OK)
+@limiter.limit("5/minute")
 def sync_disabled_users(request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):
     return sync_disabled_users_local(session)

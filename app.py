@@ -8,6 +8,12 @@ import json
 from routers import ansible, auth, ignorelist, server, user, activity_log, restricted
 from db.database import init_db
 from core.shared_utilities import format_validation_errors
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+from core.limiter import limiter  # Den Limiter importieren
+from routers import auth     # Deine Router importieren
+
 load_dotenv()
 
 # Load custom OpenAPI spec from api.json
@@ -21,6 +27,10 @@ def load_openapi_spec():
         return {}
 
 app = FastAPI(docs_url="/docs", redoc_url=None, openapi_url="/openapi.json")
+app.state.limiter = limiter
+
+# 2. Den Error-Handler für Status 429 registrieren
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 def custom_openapi():
     if not app.openapi_schema:
@@ -86,6 +96,7 @@ app.include_router(ignorelist.router)
 app.include_router(activity_log.router)
 app.include_router(ansible.router)
 app.include_router(restricted.router)
+
 
 
 @app.exception_handler(RequestValidationError)
