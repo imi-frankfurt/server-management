@@ -5,8 +5,6 @@ from db.database import getSession
 from sqlalchemy.orm import Session
 from core.limiter import limiter
 
-
-
 router = APIRouter(
         prefix="/api",
         tags=["Restricted Operations"]

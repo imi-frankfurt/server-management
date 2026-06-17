@@ -71,6 +71,10 @@ def get_disabled_users_keycloak(session: Session):
 def sync_disabled_users_local(session: Session):
     try:  
         should_disable = get_disabled_users_keycloak(session)
+        
+        processed_users = []
+        total_unassigned_servers = 0
+        
         for user in should_disable:
             local_user = session.query(models.User).filter(models.User.id == user["id"]).first()
             
@@ -78,16 +82,45 @@ def sync_disabled_users_local(session: Session):
                 if not local_user.enabled and not local_user.servers:
                     continue
 
+                servers_removed = 0
+                affected_servers = []
                 if local_user.servers:
+                    servers_removed = len(local_user.servers)
+                    total_unassigned_servers += servers_removed
+                    
                     for server in local_user.servers:
                         unassign_user_from_server(
                             UserUnassignmentSerialized(user_id=user["id"], server_id=server.id), 
                             session, 
                             actor="restricted-sync"
                         )
-                if local_user.enabled:
+                        affected_servers.append(server.name or server.ip)
+                
+                was_active = local_user.enabled
+                if was_active:
                     deactivate_user_in_local_db(session, user["id"])
-        return should_disable
+                
+                processed_users.append({
+                    "id": user["id"],
+                    "username": user.get("username", "unknown"),
+                    "action": "deactivated" if was_active else "servers_unassigned_only",
+                    "servers_removed": servers_removed,
+                    "affected_servers": affected_servers
+                })
+
+        return {
+            "status": "success",
+            "message": f"Processed {len(processed_users)} users." if processed_users else "No updates needed. All disabled users are already synced.",
+            "summary": {
+                "total_disabled_in_keycloak": len(should_disable),
+                "actually_processed_locally": len(processed_users),
+                "total_servers_unassigned": total_unassigned_servers
+            },
+            "details": {
+                "processed_users": processed_users
+            }
+        }
+        
     except Exception as e:
         error_response(f"Failed to fetch disabled users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
