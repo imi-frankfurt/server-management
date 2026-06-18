@@ -61,6 +61,11 @@
           }
         },
         "type": "oauth2"
+      },
+      "APIKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       }
     }
   },
@@ -1028,6 +1033,64 @@
         "tags": [
           "Activity Logs"
         ]
+      }
+    },
+     "/api/restricted/sync": {
+      "get": {
+        "description": "Synchronize disabled users from Keycloak to local database",
+        "responses": {
+          "200": {
+            "description": "Success response from sync operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "added": {
+                      "type": "integer",
+                      "example": 5
+                    },
+                    "updated": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "deleted": {
+                      "type": "integer",
+                      "example": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "Invalid API key"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKey": []
+          }
+        ],
+        "tags": [
+          "Restricted Operations"
+        ],
+        "x-ratelimit": {
+          "limit": "1/5 minutes"
+        }
       }
     },
     "/api/ansible": {
