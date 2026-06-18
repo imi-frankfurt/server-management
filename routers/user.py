@@ -22,7 +22,7 @@ def get_disabled_users(request: Request, session: Session = Depends(getSession),
     return get_disabled_users_keycloak(session)
 
 @router.post("/user/sync", status_code=status.HTTP_200_OK)
-@limiter.limit("5/minute")
+@limiter.limit("1/5 minutes")
 def fetch_from_keycloak(request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role")), _csrf = Depends(require_csrf_token)):
     username = user.get('preferred_username', 'Unknown') if user else "Unknown"
     return sync_users(session, actor=username)

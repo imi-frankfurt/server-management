@@ -11,8 +11,8 @@ from core.shared_utilities import format_validation_errors
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from core.limiter import limiter  # Den Limiter importieren
-from routers import auth     # Deine Router importieren
+from core.limiter import limiter
+from routers import auth
 
 load_dotenv()
 
@@ -29,7 +29,6 @@ def load_openapi_spec():
 app = FastAPI(docs_url="/docs", redoc_url=None, openapi_url="/openapi.json")
 app.state.limiter = limiter
 
-# 2. Den Error-Handler für Status 429 registrieren
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 def custom_openapi():
