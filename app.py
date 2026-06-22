@@ -5,9 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import json
-from routers import ansible, auth, ignorelist, server, user, activity_log
+from routers import ansible, auth, ignorelist, server, user, activity_log, restricted
 from db.database import init_db
 from core.shared_utilities import format_validation_errors
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+from core.limiter import limiter
+from routers import auth
+
 load_dotenv()
 
 # Load custom OpenAPI spec from api.json
@@ -21,6 +27,9 @@ def load_openapi_spec():
         return {}
 
 app = FastAPI(docs_url="/docs", redoc_url=None, openapi_url="/openapi.json")
+app.state.limiter = limiter
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 def custom_openapi():
     if not app.openapi_schema:
@@ -85,6 +94,8 @@ app.include_router(user.router)
 app.include_router(ignorelist.router)
 app.include_router(activity_log.router)
 app.include_router(ansible.router)
+app.include_router(restricted.router)
+
 
 
 @app.exception_handler(RequestValidationError)

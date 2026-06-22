@@ -45,6 +45,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     keycloak_id = Column(String, unique=True, index=True)
     username = Column(String, unique=True, index=True)
+    enabled = Column(Boolean, default=True)
     servers = relationship("Server", secondary="user_server", back_populates="users")
     public_keys = relationship("PublicKey", back_populates="user", cascade="all, delete-orphan")
 

@@ -3,9 +3,10 @@ from db import models
 from db.database import getSession
 from core.dependencies import get_current_user, require_role, require_csrf_token
 from sqlalchemy.orm import Session
-from services.user_service import get_users_local_db, sync_users, get_user_by_id, assign_user_to_server, unassign_user_from_server, update_user_by_id
+from services.user_service import get_users_local_db, sync_users, get_user_by_id, get_disabled_users_keycloak, assign_user_to_server, unassign_user_from_server, update_user_by_id
 from schemas.serialized_models import UserSerialized, UserAssignmentSerialized, UserUpdateSerialized, UserUnassignmentSerialized
 from typing import Dict
+from core.limiter import limiter
 router = APIRouter(
         prefix="/api",
         tags=["CRUD Operations"]
@@ -16,7 +17,12 @@ router = APIRouter(
 def get_users(request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):
     return get_users_local_db(session)
 
+@router.get("/user/disabled", status_code=status.HTTP_200_OK)
+def get_disabled_users(request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):
+    return get_disabled_users_keycloak(session)
+
 @router.post("/user/sync", status_code=status.HTTP_200_OK)
+@limiter.limit("1/5 minutes")
 def fetch_from_keycloak(request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role")), _csrf = Depends(require_csrf_token)):
     username = user.get('preferred_username', 'Unknown') if user else "Unknown"
     return sync_users(session, actor=username)
