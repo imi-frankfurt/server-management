@@ -55,7 +55,21 @@ class PublicKey(Base):
     key_content = Column(Text, unique=True, index=True)
     user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"))
     user = relationship("User", back_populates="public_keys")
+    
+class AnsibleContent(Base):
+    __tablename__ = "ansible_content"
+    id = Column(Integer, primary_key=True, index=True)
+    content_hash = Column(String(64), unique=True, nullable=False, index=True)
+    json_data = Column(Text, nullable=False)
+    queries = relationship("AnsibleQuery", back_populates="content")
 
+
+class AnsibleQuery(Base):
+    __tablename__ = "ansible_queries"
+    id = Column(Integer, primary_key=True, index=True)
+    actor = Column(String, nullable=False, index=True)
+    ansible_content_id = Column(Integer, ForeignKey("ansible_content.id", ondelete="RESTRICT"), nullable=False)
+    content = relationship("AnsibleContent", back_populates="queries")
 
 class ActivityLog(Base):
     __tablename__ = "activity_log"
