@@ -3,7 +3,7 @@ import hashlib
 from fastapi import status
 from core.shared_utilities import error_response
 from db import models
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 
 def log_ansible_output(session: Session, log_content: str):
@@ -66,3 +66,14 @@ def ansible_export(session : Session):
 
     except Exception as e:
         error_response(f"Failed to fetch users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
+def get_ansible_history(session : Session):
+    try:
+        history = session.query(models.AnsibleContent)\
+            .options(joinedload(models.AnsibleContent.queries))\
+            .all()
+        history.sort(key=lambda x: max([q.created_at for q in x.queries]) if x.queries else x.created_at, reverse=True)
+        return history
+    except Exception as e:
+        error_response(f"Failed to fetch Ansible history: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
