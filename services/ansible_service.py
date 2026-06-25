@@ -14,7 +14,7 @@ def log_ansible_output(session: Session, log_content: str):
     except Exception as e:
         error_response(f"Failed to log Ansible output: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def ansible_export(session : Session, actor : str | None = None):
+def ansible_export(session : Session):
     try:
         users = session.query(models.User).order_by(models.User.id.asc()).all()
         servers = session.query(models.Server).order_by(models.Server.id.asc()).all()
@@ -58,7 +58,7 @@ def ansible_export(session : Session, actor : str | None = None):
             content_entry = models.AnsibleContent(content_hash=current_hash, json_data=json_hash_value)
             session.add(content_entry)
         
-        new_query = models.AnsibleQuery(actor=actor, content=content_entry)
+        new_query = models.AnsibleQuery(content=content_entry)
         session.add(new_query)
         session.commit()
         

@@ -67,7 +67,6 @@ class AnsibleContent(Base):
 class AnsibleQuery(Base):
     __tablename__ = "ansible_queries"
     id = Column(Integer, primary_key=True, index=True)
-    actor = Column(String, nullable=False, index=True)
     ansible_content_id = Column(Integer, ForeignKey("ansible_content.id", ondelete="RESTRICT"), nullable=False)
     content = relationship("AnsibleContent", back_populates="queries")
 

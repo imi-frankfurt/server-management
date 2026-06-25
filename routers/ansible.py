@@ -11,5 +11,4 @@ router = APIRouter(
 
 @router.get("/ansible", status_code=200)
 def export_ansible_data(session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("read-only-role"))):
-    username = user.get('preferred_username', 'system') if user else "system"
-    return ansible_export(session, actor=username)
+    return ansible_export(session)
