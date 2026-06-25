@@ -1,6 +1,6 @@
 import json
 from typing import Any, List
-
+import datetime
 from pydantic import BaseModel, field_validator
 
 class ServerSerialized(BaseModel):
@@ -35,6 +35,7 @@ class IgnoreListUnassignSerialized(BaseModel):
     
 class QueryTimestampResponse(BaseModel):
     id: int
+    created_at: datetime.datetime
     class Config:
         from_attributes = True
 
