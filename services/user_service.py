@@ -168,6 +168,7 @@ def get_users_local_db(session: Session):
             user_list.append({
                 "id": user.id,
                 "keycloak_id": user.keycloak_id,
+                "enabled": user.enabled,
                 "username": user.username,
                 "pubKey": pubkey_list,
                 "assigned_servers": assigned_servers,
@@ -280,6 +281,7 @@ def get_user_by_id(session: Session, user_id: str):
             "id": target_user.id,
             "keycloak_id": target_user.keycloak_id,
             "username": target_user.username,
+            "enabled": target_user.enabled,
             "pubKey": pubkey_list,
             "assigned_servers": assigned_servers,
             "created_at": target_user.created_at,
