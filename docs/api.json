@@ -458,6 +458,10 @@
                         "example": "123e4567-e89b-12d3-a456-426614174000",
                         "type": "string"
                       },
+                      "enabled": {
+                        "example": true,
+                        "type": "boolean"
+                      },
                       "pubKey": {
                         "example": [
                           "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
@@ -565,6 +569,10 @@
                     "keycloak_id": {
                       "example": "123e4567-e89b-12d3-a456-426614174000",
                       "type": "string"
+                    },
+                    "enabled": {
+                        "example": true,
+                        "type": "boolean"
                     },
                     "pubKey": {
                       "example": [
