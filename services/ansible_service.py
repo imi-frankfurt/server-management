@@ -1,7 +1,18 @@
+import json
+import hashlib
 from fastapi import status
 from core.shared_utilities import error_response
 from db import models
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+
+
+def log_ansible_output(session: Session, log_content: str):
+    try:
+        log_entry = models.AnsibleLogs(log_content=log_content)
+        session.add(log_entry)
+        session.commit()
+    except Exception as e:
+        error_response(f"Failed to log Ansible output: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def ansible_export(session : Session):
     try:
@@ -34,11 +45,35 @@ def ansible_export(session : Session):
                 "user_id": user.username,
                 "public_keys": public_keys,
             })
-
-        return {
+        
+        ansible_log_content = {
             "hosts": hosts,
             "users": users_payload,
         }
+        json_hash_value = json.dumps(ansible_log_content, sort_keys=True, separators=(',', ':'))
+        current_hash = hashlib.sha256(json_hash_value.encode('utf-8')).hexdigest()
+        content_entry = session.query(models.AnsibleContent).filter(models.AnsibleContent.content_hash == current_hash).first()
+
+        if not content_entry:
+            content_entry = models.AnsibleContent(content_hash=current_hash, json_data=json_hash_value)
+            session.add(content_entry)
+        
+        new_query = models.AnsibleQuery(content=content_entry)
+        session.add(new_query)
+        session.commit()
+        
+        return ansible_log_content
 
     except Exception as e:
         error_response(f"Failed to fetch users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
+def get_ansible_history(session : Session):
+    try:
+        history = session.query(models.AnsibleContent)\
+            .options(joinedload(models.AnsibleContent.queries))\
+            .all()
+        history.sort(key=lambda x: max([q.created_at for q in x.queries]) if x.queries else x.created_at, reverse=True)
+        return history
+    except Exception as e:
+        error_response(f"Failed to fetch Ansible history: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)

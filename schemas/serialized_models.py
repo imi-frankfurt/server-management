@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+import json
+from typing import Any, List
+import datetime
+from pydantic import BaseModel, field_validator
 
 class ServerSerialized(BaseModel):
     ip: str
@@ -29,4 +32,28 @@ class IgnoreListEntrySerialized(BaseModel):
 class IgnoreListUnassignSerialized(BaseModel):
     server_id: int
     username: str
+    
+class QueryTimestampResponse(BaseModel):
+    id: int
+    created_at: datetime.datetime
+    class Config:
+        from_attributes = True
+
+class AnsibleContentGroupResponse(BaseModel):
+    id: int
+    content_hash: str
+    json_data: Any
+    queries: List[QueryTimestampResponse] 
+
+    @field_validator('json_data', mode='before')
+    def parse_json_string(cls, value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return {} 
+        return value
+
+    class Config:
+        from_attributes = True
 
