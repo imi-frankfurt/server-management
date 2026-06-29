@@ -1095,7 +1095,7 @@
     },
     "/api/ansible": {
       "get": {
-        "description": "Exports all servers and their assigned users in Ansible inventory format.",
+    "description": "Exports all servers and their assigned users in Ansible inventory format. Also saves the current export as a snapshot to the database for historical tracking.",
         "responses": {
           "200": {
             "content": {
@@ -1198,6 +1198,85 @@
         ]
       }
     },
+    "/api/ansible/history": {
+  "get": {
+    "description": "Returns a list of unique Ansible inventory snapshots, deduplicated by content hash. Each snapshot includes the inventory data and a log of every time that exact inventory state was fetched.",
+    "responses": {
+      "200": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "example": 3,
+                    "type": "integer"
+                  },
+                  "content_hash": {
+                    "description": "SHA-256 hash of the inventory content, used for deduplication",
+                    "example": "7c91693a02ed1f3d2adbe9f2b58288898dff05d506c179bd221f3e3b880eb9ef",
+                    "type": "string"
+                  },
+                  "json_data": {
+                    "description": "The Ansible inventory snapshot",
+                    "type": "object",
+                    "properties": {
+                      "hosts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "hostname": { "example": "192.168.1.1", "format": "ipv4", "type": "string" },
+                            "alias": { "example": "Server-Alias", "type": "string" },
+                            "ignored_users": { "example": ["imi-sshdeploy"], "items": { "type": "string" }, "type": "array" },
+                            "authorized_users": { "example": ["imi-user-01"], "items": { "type": "string" }, "type": "array" }
+                          },
+                          "required": ["hostname", "alias", "ignored_users", "authorized_users"]
+                        }
+                      },
+                      "users": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "user_id": { "example": "user-imi", "type": "string" },
+                            "public_keys": { "example": ["ssh-ed25519 XXXXX"], "items": { "type": "string" }, "type": "array" }
+                          },
+                          "required": ["user_id", "public_keys"]
+                        }
+                      }
+                    },
+                    "required": ["hosts", "users"]
+                  },
+                  "queries": {
+                    "description": "Log of each time this exact inventory state was fetched via /api/ansible",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "example": 5, "type": "integer" },
+                        "created_at": { "format": "date-time", "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "required": ["id", "content_hash", "json_data", "queries"]
+              }
+            }
+          }
+        },
+        "description": "Ansible inventory history fetched successfully"
+      },
+      "401": { "description": "Unauthorized - invalid or missing authentication token" },
+      "403": { "description": "Forbidden - requires read-only-role" }
+    },
+    "security": [{ "OIDC": [] }],
+    "summary": "Get Ansible Inventory History",
+    "tags": ["Ansible"]
+  }
+},
     "/api/ignorelist": {
       "get": {
         "description": "Returns a list of ignored users. Ignored users that are already on a server will not be touched by the configuration management, preventing accidental deactivation of accounts outside Keycloak.",
