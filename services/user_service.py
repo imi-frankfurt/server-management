@@ -339,8 +339,23 @@ def sync_users(session: Session, actor: str | None = None):
                     })
                     continue
                 
-                # Szenario C: In Keycloak DEAKTIVIERT und lokal DEAKTIVIERT -> Nichts tun
+                # Szenario C: In Keycloak DEAKTIVIERT und lokal DEAKTIVIERT -> Nichts tun,
+                # es sei denn es sind noch Server zugewiesen (z.B. durch einen vorherigen Bug
+                # oder eine manuelle Zuweisung nach der Deaktivierung) -> dann trotzdem entfernen
                 elif not local_user.enabled and not kc_is_enabled:
+                    if local_user.servers:
+                        removed_from_servers = len(local_user.servers)
+                        for server in local_user.servers:
+                            unassign_user_from_server(
+                                UserUnassignmentSerialized(user_id=local_user.id, server_id=server.id),
+                                session,
+                                actor="restricted-sync"
+                            )
+                        updated_users.append({
+                            "username": kc_username,
+                            "action": "servers_unassigned_only",
+                            "removed_from_servers": removed_from_servers
+                        })
                     continue
                
             
