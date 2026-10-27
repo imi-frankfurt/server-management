@@ -65,7 +65,7 @@ def get_disabled_users_keycloak(session: Session):
                         "username": matching_local_user["username"]
                     })
             return should_disable
-    except HTTPException:
+    except HTTPException as e:
         error_response(f"Failed to fetch disabled users: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def sync_disabled_users_local(session: Session):

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import json
+import logging
 from routers import ansible, auth, ignorelist, server, user, activity_log, restricted
 from db.database import init_db
 from core.scheduler import start_scheduler, shutdown_scheduler
@@ -18,6 +19,12 @@ from routers import auth
 
 load_dotenv()
 
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 # Load custom OpenAPI spec from api.json
 def load_openapi_spec():
     try:
@@ -28,11 +35,10 @@ def load_openapi_spec():
         print(f"Error loading api.json: {e}")
         return {}
 
-init_db()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     start_scheduler()
     yield
     shutdown_scheduler()
