@@ -1,0 +1,4 @@
+# Development tools, not installed into the Docker image
+-r requirements.txt
+pip-check==3.2.1
+pur==7.4.0

@@ -60,6 +60,9 @@ services:
   python-app:
     build: .
     container_name: fastapiapp
+    # The image runs as a non-root user; locally we run as root so the mounted
+    # mkcert key (mode 0600) in ./certs stays readable
+    user: root
     command: ["/wait-for-it.sh", "database:5432", "--timeout=60", "--", "/wait-for-it.sh", "keycloak:8080", "--timeout=120", "--", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000", "--reload", "--ssl-keyfile", "/certs/localhost+2-key.pem", "--ssl-certfile", "/certs/localhost+2.pem"]
     volumes:
       - .:/code
