@@ -292,7 +292,7 @@ def get_user_by_id(session: Session, user_id: str):
     except Exception as e:
         error_response(f"Failed to fetch user: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-def sync_users(session: Session, actor: str | None = None):
+def sync_users(session: Session, actor: str | None = None, log_unchanged: bool = True):
     try:
         added_users = []
         updated_users = []
@@ -309,17 +309,19 @@ def sync_users(session: Session, actor: str | None = None):
 
             
             kc_is_enabled = kc_user.get("enabled", True)
+            reactivated_entry = None
             local_user = session.query(models.User).filter(models.User.keycloak_id == kc_id).first()            
             if local_user:
                 processed_user_ids.add(local_user.id)
                 
-                # Szenario A: In Keycloak AKTIV, aber lokal noch DEAKTIVIERT -> Reaktivieren
+                # Szenario A: In Keycloak AKTIV, aber lokal noch DEAKTIVIERT -> Reaktivieren.
+                # Kein continue: die Public Keys werden unten ebenfalls abgeglichen, da sie sich
+                # waehrend der Deaktivierung in Keycloak geaendert haben koennen.
                 if not local_user.enabled and kc_is_enabled:
                     local_user.enabled = True
-                    session.commit()
-                    added_users.append({"username": kc_username, "keycloak_id": kc_id, "pubkeys_count": len(local_user.public_keys), "reactivated": True})
-                    continue 
-                
+                    reactivated_entry = {"username": kc_username, "keycloak_id": kc_id, "reactivated": True}
+                    added_users.append(reactivated_entry)
+
                 # Szenario B: In Keycloak DEAKTIVIERT, aber lokal noch AKTIV -> Deaktivieren
                 elif local_user.enabled and not kc_is_enabled:
                     if local_user.servers:
@@ -367,6 +369,8 @@ def sync_users(session: Session, actor: str | None = None):
                     kc_pubkeys = [pk for pk in pubkey_data if pk]  # Filter out empty strings
                 elif isinstance(pubkey_data, str) and pubkey_data:
                     kc_pubkeys = [pubkey_data]
+            if reactivated_entry:
+                reactivated_entry["pubkeys_count"] = len(kc_pubkeys)
             
             # Find if user exists in local DB.
             # Primary match is keycloak_id, but if a Keycloak account was recreated,
@@ -444,17 +448,21 @@ def sync_users(session: Session, actor: str | None = None):
                 })
                 session.delete(local_user)
 
-        create_activity_log(
-            session,
-            action="sync",
-            resource="user",
-            actor=actor,
-            details=f"added={len(added_users)};updated={len(updated_users)};deleted={len(deleted_users)}",
-        )
+        has_changes = len(added_users) > 0 or len(updated_users) > 0 or len(deleted_users) > 0
+
+        # Scheduled syncs pass log_unchanged=False so that no-op runs don't flood the activity log
+        if has_changes or log_unchanged:
+            create_activity_log(
+                session,
+                action="sync",
+                resource="user",
+                actor=actor,
+                details=f"added={len(added_users)};updated={len(updated_users)};deleted={len(deleted_users)}",
+            )
         
         session.commit()
         
-        if len(added_users) > 0 or len(updated_users) > 0 or len(deleted_users) > 0:
+        if has_changes:
             return {
                 "added_users": added_users,
                 "updated_users": updated_users,
