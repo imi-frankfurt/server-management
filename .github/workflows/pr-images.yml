@@ -74,10 +74,37 @@ jobs:
           HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
           TAG: pr-${{ github.event.pull_request.number }}
         run: |
-          url="$HARBOR_URL/api/v2.0/projects/$HARBOR_PROJECT/repositories/$IMAGE_NAME/artifacts/$TAG"
-          status=$(curl -sS -o response.txt -w '%{http_code}' -u "$ROBOT_USER:$HARBOR_TOKEN" -X DELETE "$url")
+          base="$HARBOR_URL/api/v2.0/projects/$HARBOR_PROJECT/repositories/$IMAGE_NAME/artifacts"
+          harbor() { curl -sS -o response.txt -w '%{http_code}' -u "$ROBOT_USER:$HARBOR_TOKEN" "$@"; }
+
+          status=$(harbor "$base/$TAG")
           case "$status" in
-            200) echo "Deleted $IMAGE_NAME:$TAG" ;;
-            404) echo "No image $IMAGE_NAME:$TAG found, nothing to delete" ;;
-            *)   echo "::error::Deleting $IMAGE_NAME:$TAG failed with HTTP $status"; cat response.txt; exit 1 ;;
+            200) digest=$(jq -r .digest response.txt) ;;
+            404) echo "No image $IMAGE_NAME:$TAG found, nothing to delete"; exit 0 ;;
+            *)   echo "::error::Looking up $IMAGE_NAME:$TAG failed with HTTP $status"; cat response.txt; exit 1 ;;
+          esac
+
+          # Removing the tag always succeeds, even if the artifact itself can't be deleted yet
+          status=$(harbor -X DELETE "$base/$digest/tags/$TAG")
+          if [ "$status" != 200 ]; then
+            echo "::error::Removing tag $TAG failed with HTTP $status"; cat response.txt; exit 1
+          fi
+          echo "Removed tag $IMAGE_NAME:$TAG ($digest)"
+
+          status=$(harbor -X DELETE "$base/$digest")
+          case "$status" in
+            200|404) echo "Deleted $digest" ;;
+            412)
+              echo "::notice::$digest is still referenced by other artifacts, leaving it to the daily untagged cleanup"
+              cat response.txt; echo
+              page=1
+              while :; do
+                status=$(harbor "$base?page=$page&page_size=100&with_tag=true")
+                [ "$status" = 200 ] && [ "$(jq length response.txt)" -gt 0 ] || break
+                jq -r --arg d "$digest" '.[] | select(any(.references[]?; .child_digest == $d))
+                  | "Referenced by \(.digest) (tags: \([.tags[]?.name] | join(", ")))"' response.txt
+                page=$((page + 1))
+              done
+              ;;
+            *) echo "::error::Deleting $digest failed with HTTP $status"; cat response.txt; exit 1 ;;
           esac

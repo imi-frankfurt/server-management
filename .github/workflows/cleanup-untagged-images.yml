@@ -23,18 +23,18 @@ jobs:
         run: |
           base="$HARBOR_URL/api/v2.0/projects/$HARBOR_PROJECT/repositories/$IMAGE_NAME/artifacts"
 
-          # Collect all digests first so deleting doesn't shift the pagination
-          digests=()
+          # Collect all artifacts first so deleting doesn't shift the pagination
+          echo '[]' > artifacts.json
           page=1
           while :; do
-            batch=$(curl -sSf -u "$ROBOT_USER:$HARBOR_TOKEN" \
-              "$base?page=$page&page_size=100&with_tag=true")
-            [ "$(jq length <<<"$batch")" -eq 0 ] && break
-            mapfile -t -O "${#digests[@]}" digests < <(
-              jq -r '.[] | select((.tags // []) | length == 0) | .digest' <<<"$batch")
+            curl -sSf -o page.json -u "$ROBOT_USER:$HARBOR_TOKEN" \
+              "$base?page=$page&page_size=100&with_tag=true"
+            [ "$(jq length page.json)" -eq 0 ] && break
+            jq -s '.[0] + .[1]' artifacts.json page.json > tmp.json && mv tmp.json artifacts.json
             page=$((page + 1))
           done
 
+          mapfile -t digests < <(jq -r '.[] | select((.tags // []) | length == 0) | .digest' artifacts.json)
           echo "Found ${#digests[@]} untagged artifact(s)"
           failed=0
           for digest in "${digests[@]}"; do
@@ -42,6 +42,11 @@ jobs:
               -u "$ROBOT_USER:$HARBOR_TOKEN" -X DELETE "$base/$digest")
             case "$status" in
               200|404) echo "Deleted $digest" ;;
+              412)
+                # Still referenced, e.g. by an image index; it goes once nothing references it anymore
+                parents=$(jq -r --arg d "$digest" '[.[] | select(any(.references[]?; .child_digest == $d))
+                  | "\(.digest) (tags: \([.tags[]?.name] | join(", ")))"] | join("; ")' artifacts.json)
+                echo "::notice::Skipped $digest, referenced by: ${parents:-unknown}" ;;
               *) echo "::warning::Deleting $digest failed with HTTP $status: $(cat response.txt)"; failed=1 ;;
             esac
           done
