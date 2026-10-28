@@ -21,6 +21,13 @@ The UI and automation use the same data to keep routing and access decisions con
 - **Auth/SSO:** Keycloak
 - **Deployment:** Docker
 
+## Dependencies
+
+- `requirements.txt` contains only the runtime dependencies that go into the Docker image.
+- `requirements-dev.txt` adds development tools (`pur`, `pip-check`): `pip install -r requirements-dev.txt`.
+- The image is built from `python:3.13-slim` in two stages and runs as the non-root user `app`
+  (uid `10001`). The local `docker-compose.yml` runs the container as root so the mounted mkcert key stays readable.
+
 ## Background jobs
 
 ### User sync
