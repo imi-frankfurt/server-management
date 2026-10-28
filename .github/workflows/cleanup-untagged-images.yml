@@ -1,0 +1,48 @@
+name: Delete Untagged Docker Images
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  HARBOR_URL: https://docker.imi-frankfurt.de
+  HARBOR_PROJECT: server-management
+  IMAGE_NAME: backend
+  ROBOT_USER: robot$imi-github
+
+jobs:
+  delete-untagged:
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Delete untagged artifacts from Harbor
+        env:
+          HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+        run: |
+          base="$HARBOR_URL/api/v2.0/projects/$HARBOR_PROJECT/repositories/$IMAGE_NAME/artifacts"
+
+          # Collect all digests first so deleting doesn't shift the pagination
+          digests=()
+          page=1
+          while :; do
+            batch=$(curl -sSf -u "$ROBOT_USER:$HARBOR_TOKEN" \
+              "$base?page=$page&page_size=100&with_tag=true")
+            [ "$(jq length <<<"$batch")" -eq 0 ] && break
+            mapfile -t -O "${#digests[@]}" digests < <(
+              jq -r '.[] | select((.tags // []) | length == 0) | .digest' <<<"$batch")
+            page=$((page + 1))
+          done
+
+          echo "Found ${#digests[@]} untagged artifact(s)"
+          failed=0
+          for digest in "${digests[@]}"; do
+            status=$(curl -sS -o response.txt -w '%{http_code}' \
+              -u "$ROBOT_USER:$HARBOR_TOKEN" -X DELETE "$base/$digest")
+            case "$status" in
+              200|404) echo "Deleted $digest" ;;
+              *) echo "::warning::Deleting $digest failed with HTTP $status: $(cat response.txt)"; failed=1 ;;
+            esac
+          done
+          exit $failed
