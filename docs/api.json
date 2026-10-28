@@ -887,7 +887,7 @@
     },
     "/api/user/sync": {
       "post": {
-        "description": "Fetches users from Keycloak and updates the local database. Returns synchronization summary or a no-op message.",
+        "description": "Fetches users from Keycloak and updates the local database (adds/deletes users, syncs public keys, deactivates/reactivates users). The same sync also runs automatically in-process at startup and every SYNC_INTERVAL_MINUTES minutes. Returns synchronization summary or a no-op message, or 409 if a sync is already in progress.",
         "responses": {
           "200": {
             "content": {
@@ -906,6 +906,11 @@
                               "pubkeys_count": {
                                 "example": 1,
                                 "type": "integer"
+                              },
+                              "reactivated": {
+                                "description": "Present and true if an existing local user was reactivated instead of newly added",
+                                "example": true,
+                                "type": "boolean"
                               },
                               "username": {
                                 "example": "imi-user-01",
@@ -980,6 +985,9 @@
           "403": {
             "description": "Forbidden - requires admin role"
           },
+          "409": {
+            "description": "Conflict - a sync (scheduled or manual) is already in progress"
+          },
           "500": {
             "description": "Internal server error during synchronization"
           }
@@ -1045,7 +1053,7 @@
     },
      "/api/restricted/sync": {
       "get": {
-        "description": "Synchronize disabled users from Keycloak to local database",
+        "description": "Synchronize users disabled in Keycloak to the local database: their server assignments are removed and they are deactivated locally. The automatic in-process sync (at startup and every SYNC_INTERVAL_MINUTES minutes) runs the full user sync of POST /api/user/sync, which includes this step; this endpoint is intended for manual runs. Returns 409 if a sync is already in progress.",
         "responses": {
           "200": {
             "description": "Success response from sync operation",
@@ -1054,17 +1062,73 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "added": {
-                      "type": "integer",
-                      "example": 5
+                    "status": {
+                      "type": "string",
+                      "example": "success"
                     },
-                    "updated": {
-                      "type": "integer",
-                      "example": 3
+                    "message": {
+                      "type": "string",
+                      "example": "Processed 1 users."
                     },
-                    "deleted": {
-                      "type": "integer",
-                      "example": 2
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_disabled_in_keycloak": {
+                          "type": "integer",
+                          "example": 3
+                        },
+                        "actually_processed_locally": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "total_servers_unassigned": {
+                          "type": "integer",
+                          "example": 2
+                        }
+                      }
+                    },
+                    "details": {
+                      "type": "object",
+                      "properties": {
+                        "processed_users": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer",
+                                "example": 42
+                              },
+                              "username": {
+                                "type": "string",
+                                "example": "jdoe"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "deactivated",
+                                  "servers_unassigned_only"
+                                ],
+                                "example": "deactivated"
+                              },
+                              "servers_removed": {
+                                "type": "integer",
+                                "example": 2
+                              },
+                              "affected_servers": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "example": [
+                                  "server-a",
+                                  "192.168.0.10"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -1081,6 +1145,54 @@
                     "detail": {
                       "type": "string",
                       "example": "Invalid API key"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - a sync (scheduled or manual) is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "Sync already in progress"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests - rate limit of 1 request per 5 minutes exceeded (requests answered with 409 also count towards the limit)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Rate limit exceeded: 1 per 5 minute"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - the sync failed, e.g. Keycloak or the database could not be reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string",
+                      "example": "Failed to fetch disabled users: ..."
                     }
                   }
                 }

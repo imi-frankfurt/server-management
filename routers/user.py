@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, status, Response
+from fastapi import APIRouter, Request, Depends, status, Response, HTTPException
 from db import models
 from db.database import getSession
 from core.dependencies import get_current_user, require_role, require_csrf_token
@@ -7,6 +7,7 @@ from services.user_service import get_users_local_db, sync_users, get_user_by_id
 from schemas.serialized_models import UserSerialized, UserAssignmentSerialized, UserUpdateSerialized, UserUnassignmentSerialized
 from typing import Dict
 from core.limiter import limiter
+from core.scheduler import sync_lock
 router = APIRouter(
         prefix="/api",
         tags=["CRUD Operations"]
@@ -25,7 +26,12 @@ def get_disabled_users(request: Request, session: Session = Depends(getSession),
 @limiter.limit("1/5 minutes")
 def fetch_from_keycloak(request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role")), _csrf = Depends(require_csrf_token)):
     username = user.get('preferred_username', 'Unknown') if user else "Unknown"
-    return sync_users(session, actor=username)
+    if not sync_lock.acquire(blocking=False):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Sync already in progress")
+    try:
+        return sync_users(session, actor=username)
+    finally:
+        sync_lock.release()
 
 @router.post("/user/assign", status_code=status.HTTP_200_OK)
 def assign_user(server_user : UserAssignmentSerialized, request: Request, session: Session = Depends(getSession), user: dict = Depends(get_current_user), _roles = Depends(require_role("admin-role")), _csrf = Depends(require_csrf_token)):

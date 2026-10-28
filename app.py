@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -5,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import json
+import logging
 from routers import ansible, auth, ignorelist, server, user, activity_log, restricted
 from db.database import init_db
+from core.scheduler import start_scheduler, shutdown_scheduler
 from core.shared_utilities import format_validation_errors
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -15,6 +18,12 @@ from core.limiter import limiter
 from routers import auth
 
 load_dotenv()
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 # Load custom OpenAPI spec from api.json
 def load_openapi_spec():
@@ -26,7 +35,16 @@ def load_openapi_spec():
         print(f"Error loading api.json: {e}")
         return {}
 
-app = FastAPI(docs_url="/docs", redoc_url=None, openapi_url="/openapi.json")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    start_scheduler()
+    yield
+    shutdown_scheduler()
+
+
+app = FastAPI(docs_url="/docs", redoc_url=None, openapi_url="/openapi.json", lifespan=lifespan)
 app.state.limiter = limiter
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -39,8 +57,6 @@ def custom_openapi():
 
 
 app.openapi = custom_openapi
-
-init_db()
 
 origins = [
     "http://localhost",
