@@ -16,7 +16,12 @@ def log_ansible_output(session: Session, log_content: str):
 
 def ansible_export(session : Session):
     try:
-        users = session.query(models.User).order_by(models.User.id.asc()).all()
+        # Only enabled users with at least one public key are exported to Ansible
+        users = session.query(models.User).filter(
+            models.User.enabled.is_(True),
+            models.User.public_keys.any(models.PublicKey.key_content != ""),
+        ).order_by(models.User.id.asc()).all()
+        exported_usernames = {u.username for u in users if u.username}
         servers = session.query(models.Server).order_by(models.Server.id.asc()).all()
 
         hosts = []
@@ -30,7 +35,7 @@ def ansible_export(session : Session):
 
             alias_values = [item.alias for item in aliases if item.alias]
             ignored_users = sorted([item.username for item in ignored_entries if item.username])
-            authorized_users = sorted([u.username for u in server.users if u.username])
+            authorized_users = sorted([u.username for u in server.users if u.username in exported_usernames])
 
             hosts.append({
                 "hostname": server.ip,
