@@ -4,7 +4,7 @@ from core.dependencies import get_current_user, get_user_roles, require_role, ge
 from dotenv import load_dotenv
 from typing import List
 from pydantic import BaseModel
-from services.authentication_service import create_auth_url, callback_token, refresh_token
+from services.authentication_service import create_auth_url, callback_token, refresh_token, set_pkce_verifier_cookie
 load_dotenv()
 
 class LoginRequest(BaseModel):
@@ -27,14 +27,18 @@ async def root():
     return {"message": "API is running"}
 
 @router.get("/auth/login-url")
-async def get_login_url(frontend_callback_url: str = None):
-    auth_url = create_auth_url(redirect_uri=frontend_callback_url)
+async def get_login_url(response: Response, frontend_callback_url: str = None):
+    auth_url, code_verifier = create_auth_url(redirect_uri=frontend_callback_url)
+    set_pkce_verifier_cookie(response, code_verifier)
     return {"auth_url": auth_url}
 
 @router.get("/auth/login")
 async def login_redirect():
-    auth_url = create_auth_url()
-    return RedirectResponse(auth_url)
+    auth_url, code_verifier = create_auth_url()
+    # Cookies on an injected Response are not applied when returning a RedirectResponse.
+    redirect = RedirectResponse(auth_url)
+    set_pkce_verifier_cookie(redirect, code_verifier)
+    return redirect
 
 @router.post("/auth/refresh")
 def refresh_token_route(request: Request, response: Response):
@@ -42,8 +46,8 @@ def refresh_token_route(request: Request, response: Response):
     return result
 
 @router.post("/auth/exchange-code")
-def exchange_code(request: CodeExchangeRequest, response: Response):
-    result = callback_token(request.code, response, redirect_uri=request.redirect_uri)
+def exchange_code(body: CodeExchangeRequest, request: Request, response: Response):
+    result = callback_token(body.code, request, response, redirect_uri=body.redirect_uri)
     return result
 
 @router.get("/protected")

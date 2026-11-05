@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-11-05
+
+### Security
+- Login now uses PKCE (S256), so the Keycloak client can require it. The verifier is kept in a short-lived `HttpOnly` cookie (`pkce_verifier`) between starting the login and exchanging the code.
+
+### Changed
+- `POST /auth/exchange-code` now responds with `400` if the `pkce_verifier` cookie is missing or expired. Frontends must call `GET /auth/login-url` with credentials so the browser stores the cookie.
+
 ## [2.2.1] - 2026-10-29
 
 ### Fixed
@@ -83,6 +91,7 @@ Initial release of the IMI Server Manager.
 - GitHub Actions workflow to build and push Docker images.
 - README and API specification.
 
+[2.3.0]: https://github.com/imi-frankfurt/server-management/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/imi-frankfurt/server-management/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/imi-frankfurt/server-management/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/imi-frankfurt/server-management/compare/v2.0.1-rc1...v2.1.0

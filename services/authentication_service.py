@@ -11,6 +11,7 @@ from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorization
 from fastapi import Depends, Request, status, HTTPException, Response
 from dotenv import load_dotenv
 from keycloak import KeycloakOpenID
+from keycloak.pkce_utils import generate_code_challenge, generate_code_verifier
 from typing import Dict, Any, Optional
 
 from core.shared_utilities import error_response
@@ -31,6 +32,9 @@ _JWKS_CACHE: Dict[str, Any] = {"keys": None, "expires_at": 0.0}
 _JWKS_CACHE_TTL_SECONDS = 300
 _ISSUER_CACHE: Dict[str, Any] = {"issuers": None, "expires_at": 0.0}
 _ISSUER_CACHE_TTL_SECONDS = 300
+PKCE_VERIFIER_COOKIE_NAME = "pkce_verifier"
+# Matches Keycloak's default login timeout, so a slow login does not outlive the verifier.
+_PKCE_VERIFIER_MAX_AGE_SECONDS = 1800
 
 
 def generate_csrf_token() -> str:
@@ -42,6 +46,29 @@ def _set_csrf_cookie(response: Response, csrf_token: str) -> None:
         key="csrf_token",
         value=csrf_token,
         httponly=False,
+        secure=_cookie_secure_enabled(),
+        samesite=_cookie_samesite_value(),
+        path="/",
+    )
+
+
+def set_pkce_verifier_cookie(response: Response, code_verifier: str) -> None:
+    response.set_cookie(
+        key=PKCE_VERIFIER_COOKIE_NAME,
+        value=code_verifier,
+        httponly=True,
+        secure=_cookie_secure_enabled(),
+        samesite=_cookie_samesite_value(),
+        path="/",
+        max_age=_PKCE_VERIFIER_MAX_AGE_SECONDS,
+    )
+
+
+def _delete_pkce_verifier_cookie(response: Response) -> None:
+    # Attributes must match the original cookie, or browsers may ignore the deletion.
+    response.delete_cookie(
+        key=PKCE_VERIFIER_COOKIE_NAME,
+        httponly=True,
         secure=_cookie_secure_enabled(),
         samesite=_cookie_samesite_value(),
         path="/",
@@ -192,13 +219,28 @@ def _validate_audience(decoded_token: Dict[str, Any]) -> None:
             headers={"WWW-Authenticate": "Bearer"}
         )
     
-def create_auth_url(redirect_uri: str = None):
+def create_auth_url(redirect_uri: str = None) -> tuple[str, str]:
+    """Returns the Keycloak login URL and the PKCE verifier the caller must store for the code exchange."""
     uri = redirect_uri or os.getenv("KEYCLOAK_REDIRECT_URI")
-    return keycloak_openid.auth_url(redirect_uri=uri, scope=os.getenv("KEYCLOAK_SCOPE"))
+    code_verifier = generate_code_verifier()
+    code_challenge, code_challenge_method = generate_code_challenge(code_verifier)
+    auth_url = keycloak_openid.auth_url(
+        redirect_uri=uri,
+        scope=os.getenv("KEYCLOAK_SCOPE"),
+        code_challenge=code_challenge,
+        code_challenge_method=code_challenge_method,
+    )
+    return auth_url, code_verifier
 
 from fastapi import Response
 
-def callback_token(code: str, response: Response, redirect_uri: str = None) -> Dict:
+def callback_token(code: str, request: Request, response: Response, redirect_uri: str = None) -> Dict:
+    code_verifier = request.cookies.get(PKCE_VERIFIER_COOKIE_NAME)
+    if not code_verifier:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PKCE verifier cookie is missing or expired, please restart the login"
+        )
     try:
         cookie_secure = _cookie_secure_enabled()
         cookie_samesite = _cookie_samesite_value()
@@ -208,7 +250,8 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
         token = keycloak_openid.token(
             grant_type='authorization_code',
             code=code,
-            redirect_uri=uri
+            redirect_uri=uri,
+            code_verifier=code_verifier
         )
         
         # Set access token cookie
@@ -233,6 +276,7 @@ def callback_token(code: str, response: Response, redirect_uri: str = None) -> D
                     max_age=2592000  # 30 days
                 )
         _set_csrf_cookie(response, csrf_token)
+        _delete_pkce_verifier_cookie(response)
                 
         return {
             "status": "success",

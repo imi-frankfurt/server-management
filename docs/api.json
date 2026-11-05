@@ -1701,7 +1701,7 @@
     },
     "/auth/login-url": {
       "get": {
-        "description": "Returns Keycloak login URL for frontend redirect.",
+        "description": "Returns Keycloak login URL for frontend redirect and sets the HttpOnly pkce_verifier cookie. Must be called with credentials so the browser stores the cookie.",
         "parameters": [
           {
             "in": "query",
@@ -1737,7 +1737,7 @@
     },
     "/auth/login": {
       "get": {
-        "description": "Redirects to Keycloak for user authentication.",
+        "description": "Redirects to Keycloak for user authentication and sets the HttpOnly pkce_verifier cookie.",
         "responses": {
           "302": {
             "description": "Redirect to Keycloak login page"
@@ -1751,7 +1751,7 @@
     },
     "/auth/exchange-code": {
       "post": {
-        "description": "Exchanges authorization code for tokens and sets secure auth cookies.",
+        "description": "Exchanges authorization code for tokens and sets secure auth cookies. Requires the pkce_verifier cookie set when the login was started; responds with 400 if it is missing or expired.",
         "requestBody": {
           "content": {
             "application/json": {
