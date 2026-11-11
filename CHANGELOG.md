@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.1] - 2026-11-11
 
 ### Changed
 - Updated Python dependencies to their latest compatible versions, including FastAPI 0.162.4, uvicorn 0.54.0, pydantic 2.14.3, sentry-sdk 2.74.0, requests 2.34.2 and psycopg2 2.9.13. SQLAlchemy stays on the 2.0 series (2.0.57).
@@ -97,6 +97,7 @@ Initial release of the IMI Server Manager.
 - GitHub Actions workflow to build and push Docker images.
 - README and API specification.
 
+[2.3.1]: https://github.com/imi-frankfurt/server-management/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/imi-frankfurt/server-management/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/imi-frankfurt/server-management/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/imi-frankfurt/server-management/compare/v2.1.0...v2.2.0
