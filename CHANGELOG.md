@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Updated Python dependencies to their latest compatible versions, including FastAPI 0.162.4, uvicorn 0.54.0, pydantic 2.14.3, sentry-sdk 2.74.0, requests 2.34.2 and psycopg2 2.9.13. SQLAlchemy stays on the 2.0 series (2.0.57).
+- Updated GitHub Actions to their current major versions (Node 24 runtime): `actions/checkout@v7`, `docker/setup-buildx-action@v4`, `docker/login-action@v4`, `docker/metadata-action@v6`, `docker/setup-qemu-action@v4`, `docker/build-push-action@v7`.
+
 ## [2.3.0] - 2026-11-05
 
 ### Security
